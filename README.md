@@ -48,7 +48,6 @@ Requires Node.js 20+.
 npm install
 cp .env.example .env         # then fill in the values
 npm run check                # optional: test the Claude connection without Discord
-npm run deploy-commands      # register slash commands (re-run when commands change)
 npm start
 ```
 
@@ -79,10 +78,24 @@ Without Canva, Mimi still does the creative direction and hands over full specs 
 
 ## Hosting
 
-`npm start` runs the bot as a long-lived process. It has to stay running for Mimi to stay online. Options:
+`npm start` runs the bot as a long-lived process, and Mimi is only online while it's running. Slash commands register themselves every time she starts.
 
-- **A VPS** (DigitalOcean, Hetzner, Lightsail): use `pm2 start src/index.js --name mimi`, or a systemd service.
-- **Railway / Render / Fly.io**: deploy the repo as a worker (no web port needed), with start command `npm start` and the `.env` values set as environment variables.
+### Railway (recommended)
+
+`railway.json` sets the start command and restarts her automatically if she crashes.
+
+1. Sign in at <https://railway.com> with GitHub.
+2. **New Project → Deploy from GitHub repo → `agentleadlab/mimi`**. If the repo isn't listed, click **Configure GitHub App** and grant Railway access to it.
+3. Open the service → **Settings → Source** and set the branch Mimi lives on.
+4. **Variables** tab → add `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` and `ANTHROPIC_API_KEY`, plus any optional ones from `.env.example`.
+5. Railway redeploys. Under **Deployments → View logs**, look for `Mimi is online as …`.
+
+No domain or port is needed, because Mimi connects out to Discord.
+
+### Other options
+
+- **A VPS** (DigitalOcean, Hetzner, Lightsail): `pm2 start src/index.js --name mimi`, or a systemd service.
+- **Render / Fly.io**: deploy as a background worker with start command `npm start`.
 
 ## Development
 

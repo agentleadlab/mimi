@@ -4,6 +4,7 @@ import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { chunkMessage } from "./text.js";
 import { commandsByName } from "./commands.js";
+import { registerCommands } from "./deploy-commands.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -24,6 +25,8 @@ const client = new Client({
 client.once(Events.ClientReady, (c) => {
   console.log(`Mimi is online as ${c.user.tag} (model: ${config.model}).`);
   c.user.setActivity("your briefs", { type: ActivityType.Listening });
+  // Keep slash commands in sync on every start, so hosting needs no extra step.
+  registerCommands(c.application.id).catch((err) => console.error("Slash command registration failed:", err));
 });
 
 async function shouldReply(message) {
