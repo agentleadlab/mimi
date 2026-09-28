@@ -1,0 +1,100 @@
+# Mimi 🎨
+
+Mimi is the Creative Director AI bot for Agent Lead Lab's Discord. She handles concepts, copy, design feedback, content calendars, and (with Canva connected) design production. She runs on Claude. Her personality and rules are in [`prompts/mimi.md`](prompts/mimi.md), so edit that file to change how she behaves.
+
+## How to talk to her
+
+- **@mention her** in any channel she can see, or **reply** to one of her messages.
+- **DM her** directly.
+- In any channel listed in `MIMI_CHANNEL_IDS`, she answers every message without a mention.
+- **Attach images** (designs, references, mood boards) and she'll look at them.
+- She reads the last ~20 messages in the channel, so follow-ups work naturally.
+
+Slash commands:
+
+| Command | What it does |
+|---|---|
+| `/mimi brief [image]` | Ask for anything creative |
+| `/ideas topic [audience] [platform]` | 3–5 campaign concepts with rationale |
+| `/copy brief [platform] [variations]` | Copy with variations to test |
+| `/review design [context]` | Structured feedback on an uploaded design |
+| `/plan timeframe [focus] [channels]` | Content calendar |
+
+## Setup
+
+### 1. Create the Discord bot
+
+1. Go to <https://discord.com/developers/applications> → **New Application**, name it **Mimi**.
+2. **General Information**: copy the **Application ID**. That's `DISCORD_CLIENT_ID`.
+3. **Bot** tab:
+   - **Reset Token**, then copy it. That's `DISCORD_TOKEN`.
+   - Under **Privileged Gateway Intents**, turn on **Message Content Intent**. Without it, she can't read messages.
+   - Optional: upload an avatar.
+4. **OAuth2 → URL Generator**:
+   - Scopes: `bot`, `applications.commands`
+   - Bot permissions: View Channels, Send Messages, Send Messages in Threads, Read Message History, Attach Files, Embed Links
+   - Open the generated URL and invite Mimi to your server.
+5. Optional: turn on Developer Mode (User Settings → Advanced), then right-click your server → **Copy Server ID**. That's `DISCORD_GUILD_ID`, and with it set, slash commands show up instantly.
+
+### 2. Get an Anthropic API key
+
+Create one at <https://console.anthropic.com> → API Keys. That's `ANTHROPIC_API_KEY`.
+
+### 3. Install and run
+
+Requires Node.js 20+.
+
+```bash
+npm install
+cp .env.example .env         # then fill in the values
+npm run check                # optional: test the Claude connection without Discord
+npm run deploy-commands      # register slash commands (re-run when commands change)
+npm start
+```
+
+When it's working, you'll see `Mimi is online as Mimi#1234`.
+
+## Configuration
+
+All settings live in `.env` (see `.env.example`):
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DISCORD_TOKEN` | (required) | Bot token |
+| `DISCORD_CLIENT_ID` | (required for `deploy-commands`) | Application ID |
+| `ANTHROPIC_API_KEY` | (required) | Claude API key |
+| `DISCORD_GUILD_ID` | (unset) | Register commands to one server instantly |
+| `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message |
+| `MIMI_MODEL` | `claude-opus-5` | Claude model |
+| `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
+| `MIMI_MAX_TOKENS` | `16000` | Max reply length |
+| `MIMI_HISTORY_LIMIT` | `20` | How many earlier channel messages she reads |
+| `CANVA_MCP_URL` / `CANVA_MCP_TOKEN` | (unset) | Connect Canva for direct design production |
+
+If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
+
+### Canva
+
+Without Canva, Mimi still does the creative direction and hands over full specs (layout, copy, sizes, template field mapping) for someone to build. To let her create, resize, and bulk-autofill designs herself, point `CANVA_MCP_URL` at a Canva MCP server and set `CANVA_MCP_TOKEN` to an OAuth access token for it. She then gets Canva's tools through Claude's MCP connector.
+
+## Hosting
+
+`npm start` runs the bot as a long-lived process. It has to stay running for Mimi to stay online. Options:
+
+- **A VPS** (DigitalOcean, Hetzner, Lightsail): use `pm2 start src/index.js --name mimi`, or a systemd service.
+- **Railway / Render / Fly.io**: deploy the repo as a worker (no web port needed), with start command `npm start` and the `.env` values set as environment variables.
+
+## Development
+
+```bash
+npm test
+```
+
+Layout:
+
+- `src/index.js`: Discord client, message and slash-command handling
+- `src/mimi.js`: Claude API call and error messages
+- `src/history.js`: turns channel history into a Claude conversation
+- `src/text.js`: splits replies to fit Discord's 2,000-character limit
+- `src/commands.js`: slash command definitions
+- `prompts/mimi.md`: Mimi's system prompt
