@@ -47,6 +47,10 @@ export function buildClaudeMessages(entries) {
       if (!text && entry.imageUrls.length) text = "(shared an image)";
       if (!text) return;
       text = `${entry.author}: ${text}`;
+      // Spell out the URLs too, so Mimi can hand them to Canva.
+      if (isLatest) {
+        for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) text += `\n[attached image: ${url}]`;
+      }
     } else if (!text) {
       return;
     }

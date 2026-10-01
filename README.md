@@ -69,13 +69,36 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |
 | `MIMI_HISTORY_LIMIT` | `20` | How many earlier channel messages she reads |
-| `CANVA_MCP_URL` / `CANVA_MCP_TOKEN` | (unset) | Connect Canva for direct design production |
+| `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` | (unset) | Canva integration credentials (see below) |
+| `PUBLIC_URL` | (unset) | Public https URL of the deployment, for Canva sign-in |
+| `MIMI_DATA_DIR` | `/data` if it exists, else `./data` | Where the Canva login is stored |
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
 
 ### Canva
 
-Without Canva, Mimi still does the creative direction and hands over full specs (layout, copy, sizes, template field mapping) for someone to build. To let her create, resize, and bulk-autofill designs herself, point `CANVA_MCP_URL` at a Canva MCP server and set `CANVA_MCP_TOKEN` to an OAuth access token for it. She then gets Canva's tools through Claude's MCP connector.
+Without Canva, Mimi still does the creative direction and hands over full specs (layout, copy, sizes, template field mapping) for someone to build. With Canva connected, she can also:
+
+- **Bulk create** on-brand designs from a brand template plus data (autofill), including images people attach in Discord
+- **Create** blank designs at any size, optionally starting from an attached image
+- **Resize** a design into other platform formats
+- **Export** designs as PNG, JPG, PDF, PPTX, GIF or MP4
+- **Search** the account's designs
+
+Brand templates and autofill need Canva Pro, Teams or Enterprise. Resize needs Pro or higher. The Canva API can't lay out text on a blank design, so production that has to be on brand goes through brand templates.
+
+Setup:
+
+1. **Give Mimi a public URL.** On Railway, open the service → **Settings → Networking → Generate Domain**. Set `PUBLIC_URL` to that URL, e.g. `https://mimi-production.up.railway.app`.
+2. **Add a volume** so the Canva login survives redeploys. Right-click the service → **Attach Volume**, with mount path `/data`.
+3. **Create a Canva integration** at <https://www.canva.com/developers/integrations>. Your Canva account needs multi-factor authentication turned on first.
+   - **Configuration:** copy the Client ID into `CANVA_CLIENT_ID`. Generate a secret and copy it into `CANVA_CLIENT_SECRET`.
+   - **Scopes:** enable design (meta read, content read, content write), asset (read, write), brand template (meta read, content read) and profile (read).
+   - **Authentication:** add the authentication URL `<PUBLIC_URL>/canva/callback`.
+4. Redeploy. Then, in Discord, someone with **Manage Server** runs `/canva connect`, opens the link, and signs in to the Canva account Mimi should use.
+5. Run `/canva status` to confirm the connection and see which features the account's plan allows.
+
+Then just ask, e.g. *"Mimi, bulk create listing posts from the Just Listed template for these 5 addresses"*, or *"resize this design for Stories and LinkedIn"*.
 
 ## Hosting
 

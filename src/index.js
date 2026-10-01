@@ -1,11 +1,12 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials } from "discord.js";
-import { config, missingRequired } from "./config.js";
+import { canvaConfigured, config, missingRequired } from "./config.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { chunkMessage } from "./text.js";
 import { commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
+import { startServer } from "./server.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -114,6 +115,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = commandsByName.get(interaction.commandName);
   if (!command) return;
+  if (command.handle) {
+    return command.handle(interaction).catch((err) => {
+      console.error(err);
+      interaction.editReply("Something went sideways on my end. Try again?").catch(() => {});
+    });
+  }
 
   await interaction.deferReply();
   try {
@@ -136,5 +143,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.editReply(describeError(err)).catch(() => {});
   }
 });
+
+if (canvaConfigured) {
+  startServer({
+    onCanvaConnected: ({ connectedBy }) => console.log(`Canva connected by ${connectedBy}.`),
+  });
+} else {
+  console.log("Canva not configured (set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET and PUBLIC_URL to enable it).");
+}
 
 client.login(config.discordToken);

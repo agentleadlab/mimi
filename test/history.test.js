@@ -45,6 +45,6 @@ test("attaches images only from the latest message", () => {
   const last = msgs[msgs.length - 1].content;
   assert.equal(last[0].type, "image");
   assert.equal(last[0].source.url, "https://x/new.png");
-  assert.equal(last[1].text, "Ana: (shared an image)");
+  assert.equal(last[1].text, "Ana: (shared an image)\n[attached image: https://x/new.png]");
   assert.ok(!msgs[0].content.some((b) => b.type === "image"));
 });

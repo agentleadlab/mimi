@@ -1,4 +1,5 @@
 import "dotenv/config";
+import fs from "node:fs";
 
 function list(value) {
   return (value ?? "")
@@ -23,10 +24,18 @@ export const config = {
   // How many earlier channel messages Mimi reads for context.
   historyLimit: Number(process.env.MIMI_HISTORY_LIMIT) || 20,
 
-  // Optional Canva MCP connection for design production.
-  canvaMcpUrl: process.env.CANVA_MCP_URL,
-  canvaMcpToken: process.env.CANVA_MCP_TOKEN,
+  // Canva Connect integration (canva.com/developers) for design production.
+  canvaClientId: process.env.CANVA_CLIENT_ID,
+  canvaClientSecret: process.env.CANVA_CLIENT_SECRET,
+  // Public base URL of this deployment, e.g. https://mimi-production.up.railway.app
+  publicUrl: process.env.PUBLIC_URL?.replace(/\/+$/, ""),
+  port: Number(process.env.PORT) || 3000,
+  // Where Mimi keeps state that must survive restarts (the Canva login).
+  // On Railway, mount a volume here.
+  dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
 };
+
+export const canvaConfigured = Boolean(config.canvaClientId && config.canvaClientSecret && config.publicUrl);
 
 export function missingRequired() {
   const missing = [];
