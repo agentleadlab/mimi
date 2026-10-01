@@ -5,6 +5,7 @@ import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { chunkMessage } from "./text.js";
 import { commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
+import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -27,6 +28,19 @@ client.once(Events.ClientReady, (c) => {
   c.user.setActivity("your briefs", { type: ActivityType.Listening });
   // Keep slash commands in sync on every start, so hosting needs no extra step.
   registerCommands(c.application.id).catch((err) => console.error("Slash command registration failed:", err));
+
+  ensureGuildInstallSettings(c)
+    .then((changed) => changed && console.log("Updated the app's server install settings to add Mimi as a bot member."))
+    .catch((err) => console.error("Couldn't update install settings:", err.message));
+
+  const url = inviteUrl(c.application.id);
+  if (c.guilds.cache.size === 0) {
+    console.warn(
+      `Mimi isn't a member of any server yet, so she can't be @mentioned or read messages. Add her with:\n${url}`,
+    );
+  } else {
+    console.log(`Member of: ${c.guilds.cache.map((g) => g.name).join(", ")}. Invite link: ${url}`);
+  }
 });
 
 // Discord's @ autocomplete often picks Mimi's auto-created bot role instead of
