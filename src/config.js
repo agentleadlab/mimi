@@ -14,6 +14,8 @@ export const config = {
   discordGuildId: process.env.DISCORD_GUILD_ID,
   // Channels where Mimi replies to every message, not only @mentions.
   autoReplyChannelIds: list(process.env.MIMI_CHANNEL_IDS),
+  // Reply when someone says "Mimi" in a message, no @mention needed.
+  replyToName: process.env.MIMI_REPLY_TO_NAME !== "false",
 
   model: process.env.MIMI_MODEL || "claude-opus-5",
   effort: process.env.MIMI_EFFORT || "medium",

@@ -5,20 +5,21 @@ const MAX_IMAGES = 5;
  * Normalized shape for one Discord message, independent of discord.js:
  * { fromBot: boolean, author: string, text: string, imageUrls: string[] }
  */
-export function fromDiscordMessage(message, botId) {
+export function fromDiscordMessage(message, botId, botRoleId) {
   return {
     fromBot: message.author.id === botId,
     author: message.member?.displayName ?? message.author.globalName ?? message.author.username,
-    text: stripBotMention(message.content ?? "", botId),
+    text: stripBotMention(message.content ?? "", botId, botRoleId),
     imageUrls: [...message.attachments.values()]
       .filter((a) => IMAGE_TYPES.has(a.contentType?.split(";")[0]))
       .map((a) => a.url),
   };
 }
 
-export function stripBotMention(text, botId) {
-  if (!botId) return text.trim();
-  return text.replace(new RegExp(`<@!?${botId}>`, "g"), "").trim();
+export function stripBotMention(text, botId, botRoleId) {
+  if (botId) text = text.replace(new RegExp(`<@!?${botId}>`, "g"), "");
+  if (botRoleId) text = text.replace(new RegExp(`<@&${botRoleId}>`, "g"), "");
+  return text.trim();
 }
 
 /**

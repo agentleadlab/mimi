@@ -9,6 +9,10 @@ test("strips bot mentions", () => {
   assert.equal(stripBotMention("<@123> hey <@!123>", "123"), "hey");
 });
 
+test("strips bot role mentions", () => {
+  assert.equal(stripBotMention("<@&999> ideas please", "123", "999"), "ideas please");
+});
+
 test("maps roles, labels speakers, merges consecutive turns", () => {
   const msgs = buildClaudeMessages([
     user("Ana", "need ideas"),

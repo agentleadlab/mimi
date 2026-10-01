@@ -29,10 +29,21 @@ client.once(Events.ClientReady, (c) => {
   registerCommands(c.application.id).catch((err) => console.error("Slash command registration failed:", err));
 });
 
+// Discord's @ autocomplete often picks Mimi's auto-created bot role instead of
+// her user, so a mention of that role counts too.
+function botRoleId(message) {
+  return message.guild?.members.me?.roles.botRole?.id;
+}
+
+const NAME_PATTERN = /\bmimi\b/i;
+
 async function shouldReply(message) {
   if (message.author.bot) return false;
   if (message.channel.type === ChannelType.DM) return true;
   if (message.mentions.users.has(client.user.id)) return true;
+  const roleId = botRoleId(message);
+  if (roleId && message.mentions.roles.has(roleId)) return true;
+  if (config.replyToName && NAME_PATTERN.test(message.content)) return true;
   if (config.autoReplyChannelIds.includes(message.channelId)) return true;
   if (message.reference?.messageId) {
     const ref = await message.fetchReference().catch(() => null);
@@ -59,20 +70,31 @@ client.on(Events.MessageCreate, async (message) => {
     const entries = [...earlier.values()]
       .reverse()
       .concat(message)
-      .map((m) => fromDiscordMessage(m, client.user.id));
+      .map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
 
     const reply = await askMimi(buildClaudeMessages(entries));
     stopTyping();
 
-    const [first, ...rest] = chunkMessage(reply);
-    await message.reply({ content: first, allowedMentions: { repliedUser: false } });
-    for (const chunk of rest) await message.channel.send(chunk);
+    await send(message, chunkMessage(reply));
   } catch (err) {
     stopTyping();
     console.error(err);
-    await message.reply(describeError(err)).catch(() => {});
+    await send(message, [describeError(err)]).catch((e) => console.error("Couldn't send error message:", e));
   }
 });
+
+// Reply to the message; if Discord refuses (e.g. Mimi lacks Read Message
+// History in that channel), fall back to a plain message so she isn't silent.
+async function send(message, chunks) {
+  const [first, ...rest] = chunks;
+  try {
+    await message.reply({ content: first, allowedMentions: { repliedUser: false } });
+  } catch (err) {
+    console.warn(`Reply failed in #${message.channel.name ?? message.channelId} (${err.message}); sending plainly.`);
+    await message.channel.send(first);
+  }
+  for (const chunk of rest) await message.channel.send(chunk);
+}
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;

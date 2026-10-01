@@ -4,7 +4,7 @@ Mimi is the Creative Director AI bot for Agent Lead Lab's Discord. She handles c
 
 ## How to talk to her
 
-- **@mention her** in any channel she can see, or **reply** to one of her messages.
+- **@mention her**, **say her name** ("hey Mimi, …"), or **reply** to one of her messages, in any channel she can see.
 - **DM her** directly.
 - In any channel listed in `MIMI_CHANNEL_IDS`, she answers every message without a mention.
 - **Attach images** (designs, references, mood boards) and she'll look at them.
@@ -64,6 +64,7 @@ All settings live in `.env` (see `.env.example`):
 | `ANTHROPIC_API_KEY` | (required) | Claude API key |
 | `DISCORD_GUILD_ID` | (unset) | Register commands to one server instantly |
 | `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message |
+| `MIMI_REPLY_TO_NAME` | `true` | Reply when someone says "Mimi". Set to `false` to require an @mention |
 | `MIMI_MODEL` | `claude-opus-5` | Claude model |
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |
