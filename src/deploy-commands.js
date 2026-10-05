@@ -3,21 +3,28 @@ import { REST, Routes } from "discord.js";
 import { config } from "./config.js";
 import { commands } from "./commands.js";
 
-/** Register slash commands with Discord (to one server if DISCORD_GUILD_ID is set, else globally). */
-export async function registerCommands(applicationId = config.discordClientId) {
+/**
+ * Register slash commands with Discord.
+ * - With `guildIds` (Mimi passes the servers she's in): per-server commands, which
+ *   show up within seconds, and any old global copies are cleared to avoid duplicates.
+ * - Otherwise: DISCORD_GUILD_ID if set, else globally (can take up to an hour).
+ */
+export async function registerCommands(applicationId = config.discordClientId, guildIds) {
   const rest = new REST().setToken(config.discordToken);
   const body = commands.map((c) => c.data.toJSON());
+  const targets = guildIds?.length ? guildIds : config.discordGuildId ? [config.discordGuildId] : null;
 
-  const route = config.discordGuildId
-    ? Routes.applicationGuildCommands(applicationId, config.discordGuildId)
-    : Routes.applicationCommands(applicationId);
+  if (!targets) {
+    await rest.put(Routes.applicationCommands(applicationId), { body });
+    console.log(`Registered ${body.length} slash commands globally (can take up to an hour to appear).`);
+    return;
+  }
 
-  await rest.put(route, { body });
-  console.log(
-    `Registered ${body.length} slash commands ${
-      config.discordGuildId ? `to server ${config.discordGuildId}` : "globally (can take up to an hour to appear)"
-    }.`,
-  );
+  for (const guildId of targets) {
+    await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body });
+  }
+  console.log(`Registered ${body.length} slash commands in ${targets.length} server(s).`);
+  if (guildIds?.length) await rest.put(Routes.applicationCommands(applicationId), { body: [] });
 }
 
 // Run directly: `npm run deploy-commands`

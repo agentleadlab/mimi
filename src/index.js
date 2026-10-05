@@ -30,7 +30,9 @@ client.once(Events.ClientReady, (c) => {
     c.user.setActivity({ type: ActivityType.Custom, name: "Custom Status", state: config.status });
   }
   // Keep slash commands in sync on every start, so hosting needs no extra step.
-  registerCommands(c.application.id).catch((err) => console.error("Slash command registration failed:", err));
+  registerCommands(c.application.id, [...c.guilds.cache.keys()]).catch((err) =>
+    console.error("Slash command registration failed:", err),
+  );
 
   ensureGuildInstallSettings(c)
     .then((changed) => changed && console.log("Updated the app's server install settings to add Mimi as a bot member."))
@@ -44,6 +46,13 @@ client.once(Events.ClientReady, (c) => {
   } else {
     console.log(`Member of: ${c.guilds.cache.map((g) => g.name).join(", ")}. Invite link: ${url}`);
   }
+});
+
+// When Mimi joins a new server, give it her commands right away.
+client.on(Events.GuildCreate, (guild) => {
+  registerCommands(client.application.id, [guild.id]).catch((err) =>
+    console.error(`Slash command registration failed for ${guild.name}:`, err),
+  );
 });
 
 // Discord's @ autocomplete often picks Mimi's auto-created bot role instead of
