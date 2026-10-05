@@ -1,6 +1,6 @@
 import http from "node:http";
 import { config } from "./config.js";
-import { handleCallback } from "./canva/auth.js";
+import { handleCallback, SCOPES } from "./canva/auth.js";
 
 function page(res, status, title, message) {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -21,6 +21,15 @@ export function startServer({ onCanvaConnected } = {}) {
 
     if (url.pathname === "/canva/callback") {
       const { code, state, error } = Object.fromEntries(url.searchParams);
+      if (error === "invalid_scope") {
+        return page(
+          res,
+          400,
+          "Canva permissions missing",
+          "Your Canva app doesn't have every permission Mimi asks for. In the Canva developer portal, open your app → " +
+            `Permissions and turn on: ${SCOPES.join(", ")}. Save, then run /canva connect in Discord again.`,
+        );
+      }
       if (error) return page(res, 400, "Canva not connected", `Canva said: ${error}. Run /canva connect in Discord to try again.`);
       if (!code || !state) return page(res, 400, "Canva not connected", "Missing sign-in details. Run /canva connect in Discord.");
       try {
