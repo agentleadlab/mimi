@@ -1,5 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { canvaConfigured, missingCanvaVars } from "../config.js";
+import { canvaConfigured, config, missingCanvaVars } from "../config.js";
 import { connection, createConnectLink, disconnect, redirectUri } from "./auth.js";
 import { canva } from "./api.js";
 import { describeCanvaError } from "./tools.js";
@@ -29,10 +29,13 @@ export const canvaCommand = {
 
     if (sub === "connect") {
       const link = createConnectLink(interaction.user.tag);
+      const scopes = new URL(link).searchParams.get("scope");
+      console.log(`Canva sign-in link created by ${interaction.user.tag} (client ${config.canvaClientId}, scopes: ${scopes})`);
       return interaction.editReply(
         `**[Sign in to Canva](${link})** (link works once, for 15 minutes).\n` +
           "Sign in with the Canva account whose designs and brand templates Mimi should use. " +
-          `If Canva shows a redirect error, add \`${redirectUri()}\` as an authentication URL on your Canva integration.`,
+          `If Canva shows a redirect error, add \`${redirectUri()}\` as an authentication URL on your Canva integration.\n` +
+          `-# Client ID \`${config.canvaClientId}\` · permissions requested: \`${scopes}\``,
       );
     }
 
