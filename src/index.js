@@ -111,18 +111,30 @@ async function send(message, chunks) {
   for (const chunk of rest) await message.channel.send(chunk);
 }
 
+// Discord error 10062: the interaction was already answered (e.g. by the old
+// instance during a redeploy) or took over 3 seconds to acknowledge.
+const isExpiredInteraction = (err) => err?.code === 10062;
+const logExpired = (interaction) =>
+  console.warn(`Skipped /${interaction.commandName}: Discord says it was already handled or timed out.`);
+
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = commandsByName.get(interaction.commandName);
   if (!command) return;
   if (command.handle) {
     return command.handle(interaction).catch((err) => {
+      if (isExpiredInteraction(err)) return logExpired(interaction);
       console.error(err);
       interaction.editReply("Something went sideways on my end. Try again?").catch(() => {});
     });
   }
 
-  await interaction.deferReply();
+  try {
+    await interaction.deferReply();
+  } catch (err) {
+    if (isExpiredInteraction(err)) return logExpired(interaction);
+    throw err;
+  }
   try {
     const attachment = interaction.options.getAttachment("image") ?? interaction.options.getAttachment("design");
     const messages = buildClaudeMessages([

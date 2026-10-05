@@ -28,7 +28,11 @@ export const config = {
   canvaClientId: process.env.CANVA_CLIENT_ID,
   canvaClientSecret: process.env.CANVA_CLIENT_SECRET,
   // Public base URL of this deployment, e.g. https://mimi-production.up.railway.app
-  publicUrl: process.env.PUBLIC_URL?.replace(/\/+$/, ""),
+  // Falls back to the domain Railway generates for the service.
+  publicUrl: (
+    process.env.PUBLIC_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`)
+  )?.replace(/\/+$/, ""),
   port: Number(process.env.PORT) || 3000,
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.

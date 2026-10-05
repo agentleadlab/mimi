@@ -70,7 +70,7 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |
 | `MIMI_HISTORY_LIMIT` | `20` | How many earlier channel messages she reads |
 | `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` | (unset) | Canva integration credentials (see below) |
-| `PUBLIC_URL` | (unset) | Public https URL of the deployment, for Canva sign-in |
+| `PUBLIC_URL` | Railway's generated domain | Public https URL of the deployment, for Canva sign-in |
 | `MIMI_DATA_DIR` | `/data` if it exists, else `./data` | Where the Canva login is stored |
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
@@ -89,7 +89,7 @@ Brand templates and autofill need Canva Pro, Teams or Enterprise. Resize needs P
 
 Setup:
 
-1. **Give Mimi a public URL.** On Railway, open the service → **Settings → Networking → Generate Domain**. Set `PUBLIC_URL` to that URL, e.g. `https://mimi-production.up.railway.app`.
+1. **Give Mimi a public URL.** On Railway, open the service → **Settings → Networking → Generate Domain**. Mimi picks it up automatically. To use a custom domain instead, set `PUBLIC_URL`.
 2. **Add a volume** so the Canva login survives redeploys. Right-click the service → **Attach Volume**, with mount path `/data`.
 3. **Create a Canva integration** at <https://www.canva.com/developers/integrations>. Your Canva account needs multi-factor authentication turned on first.
    - **Configuration:** copy the Client ID into `CANVA_CLIENT_ID`. Generate a secret and copy it into `CANVA_CLIENT_SECRET`.
