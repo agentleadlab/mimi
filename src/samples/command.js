@@ -1,6 +1,7 @@
-import { MessageFlags, SlashCommandBuilder } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import { config } from "../config.js";
-import { getSamples, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
+import { addToCache, getSamples, loomVideoId, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
+import { callSheetScript, sheetLogConfigured } from "./sheetLog.js";
 import { createPreviewLink, linkStatus, recentLinks } from "./links.js";
 
 const NOT_CONFIGURED =
@@ -82,7 +83,21 @@ export const samplesCommand = {
     .setDescription("Ad sample library")
     .addSubcommand((s) => s.setName("list").setDescription("Show all ad samples by lead type"))
     .addSubcommand((s) => s.setName("refresh").setDescription("Re-read the Google Sheet now"))
-    .addSubcommand((s) => s.setName("log").setDescription("Recent preview links: who requested, who opened")),
+    .addSubcommand((s) => s.setName("log").setDescription("Recent preview links: who requested, who opened"))
+    .addSubcommand((s) =>
+      s
+        .setName("add")
+        .setDescription("Add a new ad sample to the library (Manage Server only)")
+        .addStringOption((o) => o.setName("name").setDescription("Sample name, e.g. Text-Verified VET PLUS - 3").setRequired(true))
+        .addStringOption((o) =>
+          o.setName("lead_type").setDescription("Lead type (pick one or type a new one)").setRequired(true).setAutocomplete(true),
+        )
+        .addStringOption((o) => o.setName("loom").setDescription("Loom share link").setRequired(true))
+        .addStringOption((o) => o.setName("tags").setDescription("Comma-separated, e.g. veterans, army"))
+        .addStringOption((o) => o.setName("campaign").setDescription("Campaign/context (default: the sample name)")),
+    ),
+
+  autocomplete: autocompleteSamples,
 
   async handle(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -97,6 +112,8 @@ export const samplesCommand = {
       const head = sub === "refresh" ? `🔄 Re-read the sheet: ${samples.length} samples.\n\n` : "";
       return interaction.editReply((head + body).slice(0, 1990) || "The sheet has no samples with a Loom link yet.");
     }
+
+    if (sub === "add") return addSample(interaction);
 
     if (sub === "log") {
       const links = recentLinks(15);
@@ -117,3 +134,53 @@ export const samplesCommand = {
     }
   },
 };
+
+async function addSample(interaction) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    return interaction.editReply("Only people with **Manage Server** can add samples. Ask an admin, or add the row in the sheet.");
+  }
+  if (!sheetLogConfigured()) {
+    return interaction.editReply("Adding from Discord needs the sheet script (`SAMPLES_LOG_URL` / `SAMPLES_LOG_SECRET`). For now, add the row in the sheet.");
+  }
+
+  const name = interaction.options.getString("name").trim();
+  const leadType = interaction.options.getString("lead_type").trim();
+  const loomInput = interaction.options.getString("loom").trim();
+  const tags = (interaction.options.getString("tags") ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const campaign = interaction.options.getString("campaign")?.trim() || name;
+
+  const loomId = loomVideoId(loomInput);
+  if (!loomId) {
+    return interaction.editReply("That doesn't look like a Loom video link. It should look like `https://www.loom.com/share/…`.");
+  }
+  const loom = `https://www.loom.com/share/${loomId}`;
+
+  const samples = await getSamples({ refresh: true });
+  const sameName = samples.find((s) => s.name.toLowerCase() === name.toLowerCase());
+  if (sameName) return interaction.editReply(`There's already a sample named **${sameName.name}**. Pick a different name.`);
+  const sameVideo = samples.find((s) => s.loomId === loomId);
+  if (sameVideo) return interaction.editReply(`That Loom video is already in the library as **${sameVideo.name}**.`);
+
+  // Match an existing lead type's spelling (e.g. "veterans" → "Veterans").
+  const vertical = verticalsOf(samples).find((v) => v.toLowerCase() === leadType.toLowerCase()) ?? leadType;
+
+  try {
+    const res = await callSheetScript({ event: "addSample", sample: { name, leadType: vertical, campaign, loom, tags: tags.join(", ") } });
+    // An older version of the script answers "ok" without adding anything.
+    if (!res.row) throw new Error("the sheet script is out of date");
+  } catch (err) {
+    console.error("/samples add failed:", err);
+    const hint = /out of date|library tab/i.test(err.message) ? " Make sure the latest Apps Script is deployed (see README)." : "";
+    return interaction.editReply(`Couldn't add it to the sheet: ${err.message}.${hint}`);
+  }
+
+  addToCache({ name, vertical, campaign, dateAdded: new Date().toISOString().slice(0, 10), loomUrl: loom, loomId, tags });
+  const isNewType = !verticalsOf(samples).includes(vertical);
+  console.log(`Sample added by ${who(interaction)}: "${name}" (${vertical}).`);
+  return interaction.editReply(
+    `✅ Added **${name}** to **${vertical}**${isNewType ? " (new lead type)" : ""}. It's available in \`/sample\` now.`,
+  );
+}

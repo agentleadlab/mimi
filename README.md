@@ -21,6 +21,7 @@ Slash commands:
 | `/plan timeframe [focus] [channels]` | Content calendar |
 | `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
+| `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
 
 ## Setup
 
@@ -115,6 +116,7 @@ Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, 
 - The library lives in a Google Sheet with the columns **Sample Name, Vertical, Campaign/Context, Date Added, Loom Link, Tags**. Share it as *Anyone with the link can view*, and put its link in `SAMPLES_SHEET_URL`. The sheet contains the Loom links, so don't share the sheet link itself. Mimi re-reads the sheet every 5 minutes, or right away with `/samples refresh`.
 - A teammate asks in chat (*"Mimi, I need a vet ad sample for John"*) or uses `/sample`, and gets one link per matching sample to send to the client.
 - The client sees a branded **Watch sample** page. Their 15 minutes start when they press Watch, so link previews in texts and emails don't use up the time. When time's up the page locks and asks them to contact their rep. Links nobody opens expire after 7 days.
+- `/samples add` (Manage Server only) checks the Loom link, rejects duplicate names and videos, and adds the row to the library tab through the same Apps Script. After updating `scripts/sample-log.gs`, redeploy it with **Deploy → Manage deployments → ✏️ → Version: New version** so the URL stays the same.
 - `/samples log` shows who requested each link, for which client, and whether it was opened.
 - **Optional "Sample Log" tab:** every link and every Watch is also written to a tab in the sheet. Paste [`scripts/sample-log.gs`](scripts/sample-log.gs) into the sheet (**Extensions → Apps Script**), set its `SECRET`, then deploy it as a web app (**Execute as: Me, Who has access: Anyone**). Put the web app URL and the secret in `SAMPLES_LOG_URL` and `SAMPLES_LOG_SECRET`. The log stores a short ID per link, never a working link.
 - Loom videos must be viewable by anyone with the link (Loom's default) for the embedded player to work.

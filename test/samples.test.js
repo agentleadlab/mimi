@@ -138,3 +138,58 @@ test("player shows who it's prepared for (escaped)", async () => {
   assert.match(out.body, /Prepared for John &#60;Smith&#62;/);
   assert.doesNotMatch(out.body, /<Smith>/);
 });
+
+test("/samples add validates input and writes the row through the sheet script", async () => {
+  const { config } = await import("../src/config.js");
+  const { samplesCommand } = await import("../src/samples/command.js");
+  config.samplesSheetUrl = "https://docs.google.com/spreadsheets/d/TEST/edit";
+  config.samplesLogUrl = "https://script.example/exec";
+  config.samplesLogSecret = "s3cret";
+  const posted = [];
+  let scriptReply = { ok: true, row: 13 };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes("docs.google.com")) return new Response(CSV);
+    posted.push(JSON.parse(opts.body));
+    return new Response(JSON.stringify(scriptReply));
+  };
+  const run = async (opts, { admin = true } = {}) => {
+    let reply;
+    const interaction = {
+      deferReply: async () => {},
+      editReply: async (m) => (reply = m),
+      memberPermissions: { has: () => admin },
+      member: { displayName: "Kath" },
+      user: {},
+      options: {
+        getSubcommand: () => "add",
+        getString: (k) => opts[k] ?? null,
+      },
+    };
+    await samplesCommand.handle(interaction);
+    return reply;
+  };
+  try {
+    const good = { name: "VET PLUS - 9", lead_type: "veterans", loom: "https://www.loom.com/share/0123456789abcdef0123?sid=1", tags: "veterans, navy" };
+    assert.match(await run(good, { admin: false }), /Manage Server/);
+    assert.match(await run({ ...good, loom: "https://youtube.com/x" }), /Loom video link/);
+    assert.match(await run({ ...good, name: "text-verified trucker" }), /already a sample named/);
+    assert.match(await run({ ...good, loom: "https://www.loom.com/share/45dfa883b17a4ea2abf42e217d2145cf" }), /already in the library/);
+    assert.equal(posted.length, 0);
+
+    assert.match(await run(good), /Added \*\*VET PLUS - 9\*\* to \*\*Veterans\*\*/);
+    assert.deepEqual(posted[0].sample, {
+      name: "VET PLUS - 9",
+      leadType: "Veterans",
+      campaign: "VET PLUS - 9",
+      loom: "https://www.loom.com/share/0123456789abcdef0123",
+      tags: "veterans, navy",
+    });
+
+    scriptReply = { ok: true }; // old script without addSample
+    assert.match(await run({ ...good, name: "Another", loom: "https://www.loom.com/share/ffffeeeeddddcccc9999" }), /out of date/);
+  } finally {
+    globalThis.fetch = realFetch;
+    config.samplesLogUrl = config.samplesLogSecret = config.samplesSheetUrl = undefined;
+  }
+});

@@ -16,6 +16,12 @@ export function logToSheet(event) {
   });
 }
 
+/** Call the sheet script and wait for its answer (throws on failure). */
+export async function callSheetScript(event) {
+  if (!sheetLogConfigured()) throw new Error("The sheet script isn't set up (SAMPLES_LOG_URL / SAMPLES_LOG_SECRET).");
+  return send(event);
+}
+
 async function send(event) {
   const res = await fetch(config.samplesLogUrl, {
     method: "POST",
@@ -36,4 +42,5 @@ async function send(event) {
     );
   }
   if (!body.ok) throw new Error(body.error === "unauthorized" ? "secret doesn't match SAMPLES_LOG_SECRET" : body.error);
+  return body;
 }

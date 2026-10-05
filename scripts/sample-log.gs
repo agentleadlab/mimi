@@ -1,5 +1,6 @@
 /**
- * Mimi → "Sample Log" tab.
+ * Mimi → your ad sample sheet: writes the "Sample Log" tab, and adds new
+ * samples to the library tab for /samples add.
  *
  * Paste this into your Ad_Sample_Library sheet (Extensions → Apps Script),
  * set SECRET below, then Deploy → New deployment → Web app
@@ -50,6 +51,8 @@ function doPost(e) {
         0,
         "",
       ]);
+    } else if (data.event === "addSample") {
+      return reply(addSample(data.sample || {}));
     } else if (data.event === "opened") {
       const row = findRow(sheet, data.id);
       if (row) {
@@ -65,6 +68,35 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** The library tab: the first tab whose A1 header is "Sample Name". */
+function librarySheet() {
+  const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  return sheets.find((sh) => sh.getName() !== TAB && String(sh.getRange(1, 1).getValue()).trim().toLowerCase() === "sample name");
+}
+
+/** Append a sample, placing each value under its matching header. */
+function addSample(sample) {
+  const sheet = librarySheet();
+  if (!sheet) return { ok: false, error: "library tab not found (A1 must be 'Sample Name')" };
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map((h) => String(h).trim().toLowerCase());
+  const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const values = {
+    "sample name": sample.name,
+    vertical: sample.leadType,
+    "campaign/context": sample.campaign || sample.name,
+    "date added": Utilities.formatDate(new Date(), tz, "yyyy-MM-dd"),
+    "loom link": sample.loom,
+    tags: sample.tags || "",
+  };
+  const row = headers.map((h) => (h in values ? values[h] : ""));
+  // Write below the last row that has a sample name (ignores formatted-but-empty rows).
+  const names = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 1), 1).getValues();
+  let last = 1;
+  names.forEach((r, i) => { if (String(r[0]).trim()) last = i + 2; });
+  sheet.getRange(last + 1, 1, 1, row.length).setValues([row]);
+  return { ok: true, row: last + 1 };
 }
 
 function logSheet() {

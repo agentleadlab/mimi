@@ -140,3 +140,8 @@ export function searchSamples(samples, query) {
     [s.vertical, s.name, s.campaign, ...s.tags].some((f) => f.toLowerCase().includes(q)),
   );
 }
+
+/** Show a just-added sample right away, before the sheet's CSV export catches up. */
+export function addToCache(sample) {
+  if (cache) cache.samples = [...cache.samples, sample];
+}
