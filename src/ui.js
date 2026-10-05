@@ -21,7 +21,7 @@ export function setIdentity({ name, avatarUrl }) {
 const logoUrl = () => (config.publicUrl ? `${config.publicUrl}/assets/logo.png` : undefined);
 
 function author() {
-  return { name: `${identity.name} · Creative Director`, ...(identity.avatarUrl && { icon_url: identity.avatarUrl }) };
+  return { name: identity.name, ...(identity.avatarUrl && { icon_url: identity.avatarUrl }) };
 }
 
 function footer(text) {

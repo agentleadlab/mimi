@@ -17,7 +17,7 @@ test("plain replies become a single branded card", () => {
   const [e] = msg.embeds;
   assert.equal(e.color, COLORS.brand);
   assert.equal(e.description, "Hey! Drop me a brief.");
-  assert.match(e.author.name, /Creative Director/);
+  assert.equal(e.author.name, "Mimi");
   assert.match(e.footer.text, /for Kath/);
   assert.ok(e.timestamp);
 });
