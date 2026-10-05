@@ -70,6 +70,7 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_STATUS` | `💅 Always raising the standard` | Custom status under her name. Set it empty to hide it |
 | `SAMPLES_SHEET_URL` | (unset) | Google Sheet with the ad sample library (see below) |
 | `PREVIEW_MINUTES` / `PREVIEW_LINK_DAYS` | `15` / `7` | Client viewing window, and how long unopened links last |
+| `SAMPLES_LOG_URL` / `SAMPLES_LOG_SECRET` | (unset) | Write the sample log to a tab in the sheet (see below) |
 | `BRAND_NAME` | `Agent Lead Lab` | Name on the client-facing preview page |
 | `MIMI_MODEL` | `claude-opus-5` | Claude model |
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
@@ -115,6 +116,7 @@ Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, 
 - A teammate asks in chat (*"Mimi, I need a vet ad sample for John"*) or uses `/sample`, and gets one link per matching sample to send to the client.
 - The client sees a branded **Watch sample** page. Their 15 minutes start when they press Watch, so link previews in texts and emails don't use up the time. When time's up the page locks and asks them to contact their rep. Links nobody opens expire after 7 days.
 - `/samples log` shows who requested each link, for which client, and whether it was opened.
+- **Optional "Sample Log" tab:** every link and every Watch is also written to a tab in the sheet. Paste [`scripts/sample-log.gs`](scripts/sample-log.gs) into the sheet (**Extensions → Apps Script**), set its `SECRET`, then deploy it as a web app (**Execute as: Me, Who has access: Anyone**). Put the web app URL and the secret in `SAMPLES_LOG_URL` and `SAMPLES_LOG_SECRET`. The log stores a short ID per link, never a working link.
 - Loom videos must be viewable by anyone with the link (Loom's default) for the embedded player to work.
 
 This stops casual forwarding, but it isn't DRM: a determined viewer could still find the Loom video address in the page code during their window.

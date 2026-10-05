@@ -100,3 +100,29 @@ test("page: GET shows a start screen without starting the timer; POST starts it"
   assert.match(get2.body, /loom\.com\/embed\//);
   assert.match(get2.body, /Preview ends in/);
 });
+
+test("log sheet gets created/opened events with a short ID, never the link token", async () => {
+  const { config } = await import("../src/config.js");
+  config.samplesLogUrl = "https://script.example/exec";
+  config.samplesLogSecret = "s3cret";
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    sent.push(JSON.parse(opts.body));
+    return new Response(JSON.stringify({ ok: true }));
+  };
+  try {
+    const [sample] = lib.rowsToSamples(lib.parseCsv(CSV));
+    const { token } = links.createPreviewLink(sample, { requestedBy: "Kath", client: "John" });
+    links.visitLink(token);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.deepEqual(sent.map((e) => e.event), ["created", "opened"]);
+    assert.equal(sent[0].id, sent[1].id);
+    assert.equal(sent[0].secret, "s3cret");
+    assert.equal(sent[0].client, "John");
+    assert.ok(!JSON.stringify(sent).includes(token));
+  } finally {
+    globalThis.fetch = realFetch;
+    config.samplesLogUrl = config.samplesLogSecret = undefined;
+  }
+});

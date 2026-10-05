@@ -44,6 +44,9 @@ export const config = {
   previewMinutes: Number(process.env.PREVIEW_MINUTES) || 15,
   // Links that are never opened stop working after this many days.
   unopenedLinkDays: Number(process.env.PREVIEW_LINK_DAYS) || 7,
+  // Optional "Sample Log" tab: Apps Script web app URL + shared secret (scripts/sample-log.gs).
+  samplesLogUrl: process.env.SAMPLES_LOG_URL,
+  samplesLogSecret: process.env.SAMPLES_LOG_SECRET,
   // Shown on the client-facing preview page.
   brandName: process.env.BRAND_NAME || "Agent Lead Lab",
   // Where Mimi keeps state that must survive restarts (the Canva login).

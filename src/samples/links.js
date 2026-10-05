@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { config } from "../config.js";
 import { getState, setState } from "../store.js";
+import { logToSheet } from "./sheetLog.js";
 
 const KEY = "previewLinks";
 // Forget links this long after they were created (keeps the log and file small).
@@ -16,6 +17,11 @@ function load() {
 function save(all) {
   const cutoff = Date.now() - KEEP_MS;
   setState(KEY, Object.fromEntries(Object.entries(all).filter(([, l]) => l.createdAt > cutoff)));
+}
+
+/** Short public ID for the log sheet, so the sheet never holds a working link. */
+export function logId(token) {
+  return crypto.createHash("sha256").update(token).digest("base64url").slice(0, 10);
 }
 
 export function previewUrl(token) {
@@ -35,6 +41,16 @@ export function createPreviewLink(sample, { requestedBy, client } = {}) {
     opens: 0,
   };
   save(all);
+  const link = all[token];
+  logToSheet({
+    event: "created",
+    id: logId(token),
+    createdAt: new Date(link.createdAt).toISOString(),
+    sample: sample.name,
+    leadType: sample.vertical,
+    client: link.client,
+    requestedBy: link.requestedBy,
+  });
   return { token, url: previewUrl(token) };
 }
 
@@ -75,6 +91,13 @@ export function visitLink(token, now = Date.now()) {
     link.lastOpenedAt = now;
     save(all);
     status = linkStatus(link, now);
+    logToSheet({
+      event: "opened",
+      id: logId(token),
+      firstOpenedAt: new Date(link.firstOpenedAt).toISOString(),
+      opens: link.opens,
+      endsAt: new Date(status.endsAt).toISOString(),
+    });
     if (link.opens === 1) {
       console.log(`Preview opened: "${link.sample.name}"${link.client ? ` for ${link.client}` : ""} (requested by ${link.requestedBy}).`);
     }
