@@ -135,7 +135,7 @@ test("player shows who it's prepared for (escaped)", async () => {
   const res = { writeHead: (status) => (out.status = status), end: (body) => (out.body = body) };
   servePreview({ method: "POST" }, res, token);
   servePreview({ method: "GET" }, res, token);
-  assert.match(out.body, /Prepared for John &#60;Smith&#62;/);
+  assert.match(out.body, /Prepared for <b>John &#60;Smith&#62;<\/b>/);
   assert.doesNotMatch(out.body, /<Smith>/);
 });
 

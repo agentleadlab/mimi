@@ -1,7 +1,12 @@
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { canvaConfigured, config as appConfig } from "./config.js";
 import { CORE_SCOPES, handleCallback, retryWithFewerScopes } from "./canva/auth.js";
 import { servePreview } from "./samples/page.js";
+
+const LOGO = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "assets", "agent-lead-lab-logo.png"));
 
 function page(res, status, title, message) {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -19,6 +24,11 @@ function page(res, status, title, message) {
 export function startServer({ onCanvaConnected } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
+
+    if (url.pathname === "/assets/logo.png") {
+      res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
+      return res.end(LOGO);
+    }
 
     const preview = url.pathname.match(/^\/p\/([A-Za-z0-9_-]{8,64})$/);
     if (preview && (req.method === "GET" || req.method === "POST")) return servePreview(req, res, preview[1]);
