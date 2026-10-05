@@ -1,4 +1,4 @@
-import { ChannelType, Client, Events, GatewayIntentBits, Partials } from "discord.js";
+import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials } from "discord.js";
 import { canvaConfigured, config, missingCanvaVars, missingRequired } from "./config.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
@@ -26,6 +26,9 @@ const client = new Client({
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Mimi is online as ${c.user.tag} (model: ${config.model}).`);
+  if (config.status) {
+    c.user.setActivity({ type: ActivityType.Custom, name: "Custom Status", state: config.status });
+  }
   // Keep slash commands in sync on every start, so hosting needs no extra step.
   registerCommands(c.application.id).catch((err) => console.error("Slash command registration failed:", err));
 

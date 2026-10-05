@@ -65,6 +65,7 @@ All settings live in `.env` (see `.env.example`):
 | `DISCORD_GUILD_ID` | (unset) | Register commands to one server instantly |
 | `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message |
 | `MIMI_REPLY_TO_NAME` | `true` | Reply when someone says "Mimi". Set to `false` to require an @mention |
+| `MIMI_STATUS` | `💅 Always raising the standard` | Custom status under her name. Set it empty to hide it |
 | `MIMI_MODEL` | `claude-opus-5` | Claude model |
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |

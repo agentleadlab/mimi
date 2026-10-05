@@ -18,6 +18,9 @@ export const config = {
   // Reply when someone says "Mimi" in a message, no @mention needed.
   replyToName: process.env.MIMI_REPLY_TO_NAME !== "false",
 
+  // Custom status under Mimi's name. Set MIMI_STATUS to an empty string to hide it.
+  status: process.env.MIMI_STATUS ?? "💅 Always raising the standard",
+
   model: process.env.MIMI_MODEL || "claude-opus-5",
   effort: process.env.MIMI_EFFORT || "medium",
   maxTokens: Number(process.env.MIMI_MAX_TOKENS) || 16000,
