@@ -49,8 +49,6 @@ export const config = {
   samplesLogSecret: process.env.SAMPLES_LOG_SECRET,
   // Shown on the client-facing preview page.
   brandName: process.env.BRAND_NAME || "Agent Lead Lab",
-  // Time zone for dates shown to clients (e.g. the watermark).
-  timezone: process.env.BRAND_TIMEZONE || "America/New_York",
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

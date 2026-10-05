@@ -127,18 +127,14 @@ test("log sheet gets created/opened events with a short ID, never the link token
   }
 });
 
-test("player is watermarked with the client name and has no fullscreen", async () => {
-  const { servePreview, watermarkText } = await import("../src/samples/page.js");
+test("player shows who it's prepared for (escaped)", async () => {
+  const { servePreview } = await import("../src/samples/page.js");
   const [sample] = lib.rowsToSamples(lib.parseCsv(CSV));
   const { token } = links.createPreviewLink(sample, { client: "John <Smith>" });
   const out = {};
   const res = { writeHead: (status) => (out.status = status), end: (body) => (out.body = body) };
   servePreview({ method: "POST" }, res, token);
   servePreview({ method: "GET" }, res, token);
-  assert.match(out.body, /class="wm"/);
-  const tile = decodeURIComponent(out.body.match(/data:image\/svg\+xml,([^"&]+)/)[1]);
-  assert.match(tile, /John &lt;Smith&gt; · \w{3} \d{1,2}, \d{4} · Agent Lead Lab · Confidential/);
+  assert.match(out.body, /Prepared for John &#60;Smith&#62;/);
   assert.doesNotMatch(out.body, /<Smith>/);
-  assert.doesNotMatch(out.body, /allowfullscreen/);
-  assert.equal(watermarkText({ client: null, firstOpenedAt: Date.UTC(2026, 9, 6, 15) }), "Oct 6, 2026 · Agent Lead Lab · Confidential");
 });
