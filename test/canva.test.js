@@ -119,3 +119,27 @@ test("expired access token is refreshed once and the rotated refresh token saved
   assert.equal(calls.filter((c) => c.key.endsWith("/oauth/token")).length, 1);
   assert.equal(getState("canva").refreshToken, "ref2");
 });
+
+test("sign-in falls back to fewer scopes when Canva rejects them", async () => {
+  const { createConnectLink, retryWithFewerScopes } = await import("../src/canva/auth.js");
+  const scopesOf = (link) => new URL(link).searchParams.get("scope").split(" ");
+  const first = createConnectLink("kath");
+  assert.ok(scopesOf(first).includes("brandtemplate:meta:read"));
+
+  const second = retryWithFewerScopes(new URL(first).searchParams.get("state"));
+  assert.ok(!scopesOf(second).includes("brandtemplate:meta:read"));
+  assert.ok(scopesOf(second).includes("brandtemplate:content:read"));
+
+  const third = retryWithFewerScopes(new URL(second).searchParams.get("state"));
+  assert.ok(!scopesOf(third).some((s) => s.startsWith("brandtemplate:")));
+
+  assert.equal(retryWithFewerScopes(new URL(third).searchParams.get("state")), null);
+  assert.equal(retryWithFewerScopes("unknown-state"), null);
+});
+
+test("listing templates explains a missing permission", async () => {
+  reset({ accessToken: "tok", refreshToken: "ref", expiresAt: Date.now() + 3600e3, scope: "design:meta:read brandtemplate:content:read" });
+  const r = await runCanvaTool("canva_list_brand_templates", {});
+  assert.equal(r.isError, true);
+  assert.match(r.content, /brandtemplate:meta:read/);
+});

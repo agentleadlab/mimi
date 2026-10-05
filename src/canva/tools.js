@@ -1,5 +1,5 @@
 import { canva, CanvaApiError, waitForJob } from "./api.js";
-import { CanvaNotConnectedError } from "./auth.js";
+import { CanvaNotConnectedError, connection, hasScope } from "./auth.js";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_AUTOFILL = 25;
@@ -51,6 +51,12 @@ const handlers = {
   },
 
   async canva_list_brand_templates({ query, limit = 20 }) {
+    if (connection() && !hasScope("brandtemplate:meta:read")) {
+      throw new Error(
+        "Mimi's Canva connection can't list brand templates (the app lacks the brandtemplate:meta:read permission). " +
+          "Ask for the template's ID from its Canva link instead, or have an admin enable that permission and run /canva connect again.",
+      );
+    }
     const data = await canva("GET", "/v1/brand-templates", {
       query: { query, limit: Math.min(limit, 50), dataset: "non_empty" },
     });

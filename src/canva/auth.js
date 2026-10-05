@@ -6,17 +6,28 @@ const AUTHORIZE_URL = "https://www.canva.com/api/oauth/authorize";
 const TOKEN_URL = "https://api.canva.com/rest/v1/oauth/token";
 const REVOKE_URL = "https://api.canva.com/rest/v1/oauth/revoke";
 
-// Must match the scopes enabled on the integration in Canva's Developer Portal.
-export const SCOPES = [
+export const CORE_SCOPES = [
   "design:meta:read",
   "design:content:read",
   "design:content:write",
   "asset:read",
   "asset:write",
-  "brandtemplate:meta:read",
-  "brandtemplate:content:read",
   "profile:read",
 ];
+
+// Scope sets to try, most capable first. Canva rejects a sign-in that asks for
+// any scope not enabled on the app, so on `invalid_scope` Mimi retries with the
+// next set. Listing brand templates needs brandtemplate:meta:read; autofill
+// from a known template only needs brandtemplate:content:read.
+const SCOPE_SETS = process.env.CANVA_SCOPES
+  ? [process.env.CANVA_SCOPES.split(/[\s,]+/).filter(Boolean)]
+  : [
+      [...CORE_SCOPES, "brandtemplate:meta:read", "brandtemplate:content:read"],
+      [...CORE_SCOPES, "brandtemplate:content:read"],
+      CORE_SCOPES,
+    ];
+
+export const SCOPES = SCOPE_SETS[0];
 
 const STATE_KEY = "canva";
 const LINK_TTL_MS = 15 * 60 * 1000;
@@ -25,26 +36,48 @@ export function redirectUri() {
   return `${config.publicUrl}/canva/callback`;
 }
 
-// state -> { verifier, expiresAt, connectedBy }
+// state -> { verifier, expiresAt, connectedBy, attempt }
 const pending = new Map();
 
-/** A one-time Canva sign-in link (valid 15 minutes). */
-export function createConnectLink(connectedBy) {
+function authorizeUrl(connectedBy, attempt) {
   const verifier = crypto.randomBytes(64).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
   const state = crypto.randomBytes(24).toString("base64url");
-  pending.set(state, { verifier, expiresAt: Date.now() + LINK_TTL_MS, connectedBy });
+  pending.set(state, { verifier, expiresAt: Date.now() + LINK_TTL_MS, connectedBy, attempt });
 
   const params = new URLSearchParams({
     response_type: "code",
     client_id: config.canvaClientId,
     redirect_uri: redirectUri(),
-    scope: SCOPES.join(" "),
+    scope: SCOPE_SETS[attempt].join(" "),
     code_challenge: challenge,
     code_challenge_method: "s256",
     state,
   });
   return `${AUTHORIZE_URL}?${params}`;
+}
+
+/** A one-time Canva sign-in link (valid 15 minutes). */
+export function createConnectLink(connectedBy) {
+  return authorizeUrl(connectedBy, 0);
+}
+
+/**
+ * After Canva rejects a sign-in with `invalid_scope`, get a link that asks for
+ * fewer scopes, or null if there's nothing smaller to try.
+ */
+export function retryWithFewerScopes(state) {
+  const entry = pending.get(state);
+  pending.delete(state);
+  if (!entry || entry.expiresAt < Date.now()) return null;
+  const next = entry.attempt + 1;
+  if (next >= SCOPE_SETS.length) return null;
+  console.warn(`Canva rejected scopes [${SCOPE_SETS[entry.attempt].join(" ")}]; retrying with fewer.`);
+  return authorizeUrl(entry.connectedBy, next);
+}
+
+export function hasScope(scope) {
+  return Boolean(connection()?.scope?.split(" ").includes(scope));
 }
 
 async function tokenRequest(fields) {

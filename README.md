@@ -95,6 +95,7 @@ Setup:
    - **Configuration:** copy the Client ID into `CANVA_CLIENT_ID`. Generate a secret and copy it into `CANVA_CLIENT_SECRET`.
    - **Scopes:** enable design (meta read, content read, content write), asset (read, write), brand template (meta read, content read) and profile (read).
    - **Authentication:** add the authentication URL `<PUBLIC_URL>/canva/callback`.
+   If Canva won't save a permission, Mimi still connects: when Canva rejects the sign-in with `invalid_scope`, she retries without brand-template listing, then without brand templates at all. Set `CANVA_SCOPES` (space-separated) to choose the scopes yourself.
 4. Redeploy. Then, in Discord, someone with **Manage Server** runs `/canva connect`, opens the link, and signs in to the Canva account Mimi should use.
 5. Run `/canva status` to confirm the connection and see which features the account's plan allows.
 
