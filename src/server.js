@@ -38,6 +38,15 @@ export function startServer({ onCanvaConnected } = {}) {
         );
       }
       if (error) return page(res, 400, "Canva not connected", `Canva said: ${error}. Run /canva connect in Discord to try again.`);
+      if (code && !state) {
+        return page(
+          res,
+          400,
+          "Canva works — use Mimi's link",
+          "This sign-in came from a link Mimi didn't create (like the Canva portal's test link), so she can't finish it. " +
+            "Your Canva app is set up fine, though. Run /canva connect in Discord and use the link Mimi gives you.",
+        );
+      }
       if (!code || !state) return page(res, 400, "Canva not connected", "Missing sign-in details. Run /canva connect in Discord.");
       try {
         const entry = await handleCallback({ code, state });
