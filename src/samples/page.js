@@ -17,6 +17,10 @@ h1 { font-size:20px; margin:8px 0 4px; }
 .sub { color:var(--muted); margin:0 0 16px; font-size:14px; }
 .video { position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:12px; overflow:hidden; }
 .video iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+/* Watermark: a repeating diagonal text tile over the video. Clicks pass through to the player. */
+.wm { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:2; }
+.wm-layer { position:absolute; inset:-75%; transform:rotate(-24deg); background-repeat:repeat; }
+.for { color:var(--muted); font-size:14px; }
 .notice { text-align:center; margin:18vh auto 0; max-width:30rem; padding:0 16px; }
 .notice h1 { font-size:24px; }
 .notice p { color:var(--muted); line-height:1.5; }
@@ -48,6 +52,33 @@ function expiredPage(reason) {
   );
 }
 
+/** Watermark text: who the preview is for, and when they watched it. */
+export function watermarkText(link) {
+  const when = new Date(link.firstOpenedAt ?? Date.now()).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: config.timezone,
+  });
+  return [link.client, when, `${config.brandName} · Confidential`].filter(Boolean).join(" · ");
+}
+
+const xmlEsc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]);
+
+/** An SVG tile: the watermark text on two staggered rows (the layer is rotated, not the text). */
+function watermarkTile(text) {
+  const w = Math.round(text.length * 8.4 + 90);
+  const h = 96;
+  const t = (x, y) =>
+    `<text x="${x}" y="${y}" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="15" font-weight="700" fill="rgba(255,255,255,0.22)" stroke="rgba(0,0,0,0.2)" stroke-width="0.6">${xmlEsc(text)}</text>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${t(w / 2, 30)}${t(0, 78)}${t(w, 78)}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function watermark(link) {
+  return `<div class="wm" aria-hidden="true"><div class="wm-layer" style="background-image:${esc(watermarkTile(watermarkText(link)))}"></div></div>`;
+}
+
 function viewerPage(link, endsAt) {
   const s = link.sample;
   const remaining = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
@@ -57,8 +88,8 @@ function viewerPage(link, endsAt) {
     `<header><div class="brand">${esc(config.brandName)}</div>
 <div class="timer" id="timer">Preview ends in <b id="left">--:--</b></div></header>
 <main id="main"><h1>${esc(s.name)}</h1>
-<p class="sub">${esc([s.vertical, s.campaign].filter(Boolean).join(" · "))}</p>
-<div class="video"><iframe src="${esc(embed)}" allow="fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe></div></main>
+<p class="sub">${esc([s.vertical, s.campaign].filter(Boolean).join(" · "))}${link.client ? ` · Prepared for ${esc(link.client)}` : ""}</p>
+<div class="video"><iframe src="${esc(embed)}" referrerpolicy="no-referrer"></iframe>${watermark(link)}</div></main>
 <script>
 (function () {
   var left = ${remaining};
@@ -88,6 +119,7 @@ function startPage(link) {
     `<header><div class="brand">${esc(config.brandName)}</div></header>
 <div class="notice"><h1>${esc(s.name)}</h1>
 <p>${esc([s.vertical, s.campaign].filter(Boolean).join(" · "))}</p>
+${link.client ? `<p class="for">Prepared for ${esc(link.client)}</p>` : ""}
 <p>You'll have <b>${config.previewMinutes} minutes</b> to watch this ad sample once you start.</p>
 <form method="post"><button class="btn" type="submit">▶ Watch sample</button></form></div>`,
   );
