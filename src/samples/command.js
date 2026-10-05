@@ -2,6 +2,7 @@ import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.
 import { config } from "../config.js";
 import { addToCache, getSamples, loomVideoId, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
 import { callSheetScript, sheetLogConfigured } from "./sheetLog.js";
+import { card, COLORS, noticeCard } from "../ui.js";
 import { createPreviewLink, linkStatus, recentLinks } from "./links.js";
 
 const NOT_CONFIGURED =
@@ -9,18 +10,41 @@ const NOT_CONFIGURED =
 
 const who = (interaction) => interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username;
 
-/** Create preview links for samples and format them for Discord. */
+/** Create preview links for samples, as a branded card. */
 export function linksMessage(samples, { requestedBy, client }) {
-  const lines = samples.map((s) => {
-    const { url } = createPreviewLink(s, { requestedBy, client });
-    return `• **${s.name}** — ${url}`;
-  });
-  return [
-    `🎬 **${samples.length === 1 ? "Ad sample" : `${samples.length} ad samples`}**${client ? ` for ${client}` : ""}:`,
-    ...lines,
-    `-# Each link works for ${config.previewMinutes} min after it's first opened (unopened links expire in ${config.unopenedLinkDays} days). The timer starts when the client presses ▶ Watch, so link previews in texts and emails won't use it up.`,
-  ].join("\n");
+  const fields = samples.map((s) => ({
+    name: `🎬 ${s.name}`,
+    value: createPreviewLink(s, { requestedBy, client }).url,
+  }));
+  const types = [...new Set(samples.map((s) => s.vertical).filter(Boolean))];
+  return {
+    embeds: [
+      card({
+        title: samples.length === 1 ? "Ad sample ready" : `${samples.length} ad samples ready`,
+        description: [
+          client ? `**For** ${client}` : null,
+          types.length ? `**Lead type** ${types.join(", ")}` : null,
+          "Copy a link below and send it to your client.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        fields: [
+          ...fields,
+          {
+            name: "⏱️ How the links work",
+            value:
+              `• **${config.previewMinutes} min** of viewing once the client presses ▶ Watch\n` +
+              `• Unopened links expire in **${config.unopenedLinkDays} days**\n` +
+              "• Safe to paste in texts and emails — previews don't start the timer",
+          },
+        ],
+        footerText: `requested by ${requestedBy}`,
+      }),
+    ],
+  };
 }
+
+const say = (interaction, text, color = COLORS.warn) => interaction.editReply({ embeds: [noticeCard(text, { color })] });
 
 async function autocompleteSamples(interaction) {
   const focused = interaction.options.getFocused(true);
@@ -53,7 +77,7 @@ export const sampleCommand = {
 
   async handle(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    if (!samplesConfigured()) return interaction.editReply(NOT_CONFIGURED);
+    if (!samplesConfigured()) return say(interaction, NOT_CONFIGURED);
 
     const leadType = interaction.options.getString("lead_type");
     const sampleName = interaction.options.getString("sample");
@@ -66,9 +90,7 @@ export const sampleCommand = {
       matches = exact.length ? exact : searchSamples(samples, sampleName);
     }
     if (!matches.length) {
-      return interaction.editReply(
-        `No samples found for **${leadType}**. Lead types: ${verticalsOf(samples).join(", ")}.`,
-      );
+      return say(interaction, `No samples found for **${leadType}**.\nLead types: ${verticalsOf(samples).join(" · ")}`);
     }
     return interaction.editReply(linksMessage(matches.slice(0, 10), { requestedBy: who(interaction), client }));
   },
@@ -101,46 +123,61 @@ export const samplesCommand = {
 
   async handle(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    if (!samplesConfigured()) return interaction.editReply(NOT_CONFIGURED);
+    if (!samplesConfigured()) return say(interaction, NOT_CONFIGURED);
     const sub = interaction.options.getSubcommand();
 
     if (sub === "list" || sub === "refresh") {
       const samples = await getSamples({ refresh: sub === "refresh" });
-      const body = verticalsOf(samples)
-        .map((v) => `**${v}**\n${samples.filter((s) => s.vertical === v).map((s) => `• ${s.name}`).join("\n")}`)
-        .join("\n");
-      const head = sub === "refresh" ? `🔄 Re-read the sheet: ${samples.length} samples.\n\n` : "";
-      return interaction.editReply((head + body).slice(0, 1990) || "The sheet has no samples with a Loom link yet.");
+      const fields = verticalsOf(samples).map((v) => {
+        const names = samples.filter((x) => x.vertical === v).map((x) => `• ${x.name}`);
+        return { name: `${v} (${names.length})`, value: names.join("\n").slice(0, 1024) };
+      });
+      if (!fields.length) return say(interaction, "The sheet has no samples with a Loom link yet.");
+      return interaction.editReply({
+        embeds: [
+          card({
+            title: sub === "refresh" ? "🔄 Library refreshed" : "📚 Ad sample library",
+            description: `**${samples.length} samples** across **${fields.length} lead types**. Use \`/sample\` to get a client link.`,
+            fields: fields.slice(0, 25),
+            showAuthor: false,
+          }),
+        ],
+      });
     }
 
     if (sub === "add") return addSample(interaction);
 
     if (sub === "log") {
       const links = recentLinks(15);
-      if (!links.length) return interaction.editReply("No preview links yet.");
-      const lines = links.map((l) => {
+      if (!links.length) return say(interaction, "No preview links yet.", COLORS.info);
+      const fields = links.map((l) => {
         const st = linkStatus(l);
         const state =
           st.state === "unopened"
-            ? "⏳ not opened yet"
+            ? "⏳ Not opened yet"
             : st.state === "open"
-              ? `👀 opened ${fmtTime(l.firstOpenedAt)} — viewing now`
+              ? `👀 Watching now · opened ${fmtTime(l.firstOpenedAt)}`
               : st.reason === "viewed"
-                ? `✅ opened ${fmtTime(l.firstOpenedAt)} (${l.opens}×), expired`
-                : "⌛ expired unopened";
-        return `• **${l.sample.name}**${l.client ? ` → ${l.client}` : ""} · by ${l.requestedBy} ${fmtTime(l.createdAt)} · ${state}`;
+                ? `✅ Watched ${fmtTime(l.firstOpenedAt)}${l.opens > 1 ? ` (${l.opens}×)` : ""}`
+                : "⌛ Expired unopened";
+        return {
+          name: `${l.sample.name}${l.client ? ` → ${l.client}` : ""}`.slice(0, 256),
+          value: `${state}\n-# by ${l.requestedBy} · ${fmtTime(l.createdAt)}`,
+        };
       });
-      return interaction.editReply(lines.join("\n").slice(0, 1990));
+      return interaction.editReply({
+        embeds: [card({ title: "🧾 Recent sample links", description: `Last ${links.length} links, newest first.`, fields, showAuthor: false })],
+      });
     }
   },
 };
 
 async function addSample(interaction) {
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return interaction.editReply("Only people with **Manage Server** can add samples. Ask an admin, or add the row in the sheet.");
+    return say(interaction, "Only people with **Manage Server** can add samples. Ask an admin, or add the row in the sheet.");
   }
   if (!sheetLogConfigured()) {
-    return interaction.editReply("Adding from Discord needs the sheet script (`SAMPLES_LOG_URL` / `SAMPLES_LOG_SECRET`). For now, add the row in the sheet.");
+    return say(interaction, "Adding from Discord needs the sheet script (`SAMPLES_LOG_URL` / `SAMPLES_LOG_SECRET`). For now, add the row in the sheet.");
   }
 
   const name = interaction.options.getString("name").trim();
@@ -154,15 +191,15 @@ async function addSample(interaction) {
 
   const loomId = loomVideoId(loomInput);
   if (!loomId) {
-    return interaction.editReply("That doesn't look like a Loom video link. It should look like `https://www.loom.com/share/…`.");
+    return say(interaction, "That doesn't look like a Loom video link. It should look like `https://www.loom.com/share/…`.");
   }
   const loom = `https://www.loom.com/share/${loomId}`;
 
   const samples = await getSamples({ refresh: true });
   const sameName = samples.find((s) => s.name.toLowerCase() === name.toLowerCase());
-  if (sameName) return interaction.editReply(`There's already a sample named **${sameName.name}**. Pick a different name.`);
+  if (sameName) return say(interaction, `There's already a sample named **${sameName.name}**. Pick a different name.`);
   const sameVideo = samples.find((s) => s.loomId === loomId);
-  if (sameVideo) return interaction.editReply(`That Loom video is already in the library as **${sameVideo.name}**.`);
+  if (sameVideo) return say(interaction, `That Loom video is already in the library as **${sameVideo.name}**.`);
 
   // Match an existing lead type's spelling (e.g. "veterans" → "Veterans").
   const vertical = verticalsOf(samples).find((v) => v.toLowerCase() === leadType.toLowerCase()) ?? leadType;
@@ -174,13 +211,24 @@ async function addSample(interaction) {
   } catch (err) {
     console.error("/samples add failed:", err);
     const hint = /out of date|library tab/i.test(err.message) ? " Make sure the latest Apps Script is deployed (see README)." : "";
-    return interaction.editReply(`Couldn't add it to the sheet: ${err.message}.${hint}`);
+    return say(interaction, `Couldn't add it to the sheet: ${err.message}.${hint}`, COLORS.error);
   }
 
   addToCache({ name, vertical, campaign, dateAdded: new Date().toISOString().slice(0, 10), loomUrl: loom, loomId, tags });
   const isNewType = !verticalsOf(samples).includes(vertical);
   console.log(`Sample added by ${who(interaction)}: "${name}" (${vertical}).`);
-  return interaction.editReply(
-    `✅ Added **${name}** to **${vertical}**${isNewType ? " (new lead type)" : ""}. It's available in \`/sample\` now.`,
-  );
+  return interaction.editReply({
+    embeds: [
+      card({
+        title: "✅ Sample added",
+        description: `Added **${name}** to **${vertical}**${isNewType ? " (new lead type)" : ""}. It's available in \`/sample\` now.`,
+        fields: [
+          { name: "Lead type", value: vertical, inline: true },
+          { name: "Campaign", value: campaign.slice(0, 1024), inline: true },
+          ...(tags.length ? [{ name: "Tags", value: tags.join(", ").slice(0, 1024), inline: true }] : []),
+        ],
+        footerText: `added by ${who(interaction)}`,
+      }),
+    ],
+  });
 }

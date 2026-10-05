@@ -48,3 +48,11 @@ test("attaches images only from the latest message", () => {
   assert.equal(last[1].text, "Ana: (shared an image)\n[attached image: https://x/new.png]");
   assert.ok(!msgs[0].content.some((b) => b.type === "image"));
 });
+
+test("Mimi's own cards are read back as text for context", async () => {
+  const { embedsToText, fromDiscordMessage } = await import("../src/history.js");
+  const embeds = [{ title: "Hooks", description: "Intro", fields: [{ name: "Option A", value: "- one" }, { name: "​", value: "more" }] }];
+  assert.equal(embedsToText(embeds), "# Hooks\nIntro\n## Option A\n- one\nmore");
+  const msg = { author: { id: "bot" }, content: "", embeds, attachments: new Map(), member: null };
+  assert.equal(fromDiscordMessage(msg, "bot").text, "# Hooks\nIntro\n## Option A\n- one\nmore");
+});

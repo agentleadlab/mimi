@@ -2,7 +2,7 @@ import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials 
 import { canvaConfigured, config, missingCanvaVars, missingRequired } from "./config.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
-import { chunkMessage } from "./text.js";
+import { COLORS, noticeCard, replyMessages, setIdentity } from "./ui.js";
 import { commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
@@ -26,6 +26,7 @@ const client = new Client({
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Mimi is online as ${c.user.tag} (model: ${config.model}).`);
+  setIdentity({ name: c.user.displayName ?? c.user.username, avatarUrl: c.user.displayAvatarURL({ size: 128 }) });
   if (config.status) {
     c.user.setActivity({ type: ActivityType.Custom, name: "Custom Status", state: config.status });
   }
@@ -102,25 +103,27 @@ client.on(Events.MessageCreate, async (message) => {
     const reply = await askMimi(buildClaudeMessages(entries), { requester });
     stopTyping();
 
-    await send(message, chunkMessage(reply));
+    await send(message, replyMessages(reply, { requester }));
   } catch (err) {
     stopTyping();
     console.error(err);
-    await send(message, [describeError(err)]).catch((e) => console.error("Couldn't send error message:", e));
+    await send(message, [{ embeds: [noticeCard(describeError(err), { color: COLORS.error })] }]).catch((e) =>
+      console.error("Couldn't send error message:", e),
+    );
   }
 });
 
 // Reply to the message; if Discord refuses (e.g. Mimi lacks Read Message
 // History in that channel), fall back to a plain message so she isn't silent.
-async function send(message, chunks) {
-  const [first, ...rest] = chunks;
+async function send(message, payloads) {
+  const [first, ...rest] = payloads;
   try {
-    await message.reply({ content: first, allowedMentions: { repliedUser: false } });
+    await message.reply({ ...first, allowedMentions: { repliedUser: false } });
   } catch (err) {
     console.warn(`Reply failed in #${message.channel.name ?? message.channelId} (${err.message}); sending plainly.`);
     await message.channel.send(first);
   }
-  for (const chunk of rest) await message.channel.send(chunk);
+  for (const p of rest) await message.channel.send(p);
 }
 
 // Discord error 10062: the interaction was already answered (e.g. by the old
@@ -141,7 +144,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return command.handle(interaction).catch((err) => {
       if (isExpiredInteraction(err)) return logExpired(interaction);
       console.error(err);
-      interaction.editReply("Something went sideways on my end. Try again?").catch(() => {});
+      interaction
+        .editReply({ embeds: [noticeCard("Something went sideways on my end. Try again?", { color: COLORS.error })] })
+        .catch(() => {});
     });
   }
 
@@ -162,13 +167,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       },
     ]);
 
-    const reply = await askMimi(messages, { requester: interaction.member?.displayName ?? interaction.user.username });
-    const [first, ...rest] = chunkMessage(reply);
+    const requester = interaction.member?.displayName ?? interaction.user.username;
+    const reply = await askMimi(messages, { requester });
+    const [first, ...rest] = replyMessages(reply, { requester });
     await interaction.editReply(first);
-    for (const chunk of rest) await interaction.followUp(chunk);
+    for (const p of rest) await interaction.followUp(p);
   } catch (err) {
     console.error(err);
-    await interaction.editReply(describeError(err)).catch(() => {});
+    await interaction.editReply({ embeds: [noticeCard(describeError(err), { color: COLORS.error })] }).catch(() => {});
   }
 });
 

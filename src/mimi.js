@@ -18,8 +18,12 @@ function runtimeNotes(canvaOn, samplesOn) {
 ## Runtime Notes (Discord)
 
 - You're replying inside a Discord channel. User turns are prefixed with the speaker's display name ("Name: message"); several people may be in the conversation. Don't prefix your own replies with your name.
-- Discord renders markdown but not tables — use bullets instead of tables.
-- Replies over ~1,800 characters get split across messages, so stay tight.
+- Your replies are shown as branded cards. Format every reply like this:
+  - First line: \`# Title\` — a short, punchy title (2–7 words, an emoji up front is welcome). Skip it only for one-line chit-chat.
+  - Then one or two sentences framing the answer (no heading).
+  - Then 1–5 sections, each starting with \`## Heading\` (short, e.g. "The idea", "Copy options", "What to test", "Next steps"), followed by bullets or short lines.
+  - Use **bold** for key words. No tables, no \`###\` subheadings, no horizontal rules. Each section stays under ~900 characters.
+  - Keep the whole reply tight — the card is the deliverable, not an essay.
 - Image attachments in the latest message are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
 ${
   canvaOn

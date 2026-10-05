@@ -157,7 +157,7 @@ test("/samples add validates input and writes the row through the sheet script",
     let reply;
     const interaction = {
       deferReply: async () => {},
-      editReply: async (m) => (reply = m),
+      editReply: async (m) => (reply = m.embeds ? [m.embeds[0].title, m.embeds[0].description].filter(Boolean).join("\n") : m),
       memberPermissions: { has: () => admin },
       member: { displayName: "Kath" },
       user: {},

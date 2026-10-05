@@ -9,11 +9,27 @@ export function fromDiscordMessage(message, botId, botRoleId) {
   return {
     fromBot: message.author.id === botId,
     author: message.member?.displayName ?? message.author.globalName ?? message.author.username,
-    text: stripBotMention(message.content ?? "", botId, botRoleId),
+    text: stripBotMention(message.content || embedsToText(message.embeds), botId, botRoleId),
     imageUrls: [...message.attachments.values()]
       .filter((a) => IMAGE_TYPES.has(a.contentType?.split(";")[0]))
       .map((a) => a.url),
   };
+}
+
+/** Mimi replies with cards (embeds); read them back as markdown for context. */
+export function embedsToText(embeds = []) {
+  return embeds
+    .map((e) =>
+      [
+        e.title && `# ${e.title}`,
+        e.description,
+        ...(e.fields ?? []).map((f) => (f.name === "\u200b" ? f.value : `## ${f.name}\n${f.value}`)),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function stripBotMention(text, botId, botRoleId) {

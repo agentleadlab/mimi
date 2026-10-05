@@ -8,6 +8,7 @@ Mimi is the Creative Director AI bot for Agent Lead Lab's Discord. She handles c
 - **DM her** directly.
 - In any channel listed in `MIMI_CHANNEL_IDS`, she answers every message without a mention.
 - **Attach images** (designs, references, mood boards) and she'll look at them.
+- Replies come as branded cards (Agent Lead Lab green): a title, a short intro, and bold sections, with her avatar on top and the logo plus who asked in the footer. `src/ui.js` builds the cards and keeps them within Discord's limits.
 - She reads the last ~20 messages in the channel, so follow-ups work naturally.
 
 Slash commands:
