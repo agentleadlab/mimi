@@ -5,13 +5,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { canvaConfigured, config } from "./config.js";
 import { isConnected } from "./canva/auth.js";
 import { canvaTools, runCanvaTool } from "./canva/tools.js";
+import { samplesConfigured } from "./samples/library.js";
+import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
 
 const canvaReady = () => canvaConfigured && isConnected();
 
-function runtimeNotes(canvaOn) {
+function runtimeNotes(canvaOn, samplesOn) {
   return `
 ## Runtime Notes (Discord)
 
@@ -32,11 +34,24 @@ You're connected to the team's Canva account through the canva_* tools. What the
 - Always share the edit links you get back. Don't invent links or IDs.`
     : `- Canva isn't connected right now. For design production requests, give the full creative direction and spec (layout, copy, sizes, template fields) so the team can build it, and mention an admin can connect Canva with /canva connect.`
 }
+${
+  samplesOn
+    ? `
+## Ad Sample Library
+
+The team keeps recorded ad samples (one per campaign, grouped by lead type) for showing to clients. When a teammate asks for an ad sample ("need a vet ad sample", "send me the IUL samples for my client"):
+1. Call list_ad_samples to see what exists, and match their wording to lead types and sample names ("vet" = Veterans, "MP"/"mortgage" = Mortgage Protection, "FE" = Final Expense).
+2. If several samples fit and they didn't say which, give them all for that lead type. If nothing fits, say so and list the lead types that exist.
+3. Call create_sample_preview_links, passing the client's name if they mentioned one, and share each link with the sample name.
+4. Mention each link gives the client the stated minutes once they press Watch. Keep it short.
+Never reveal or guess Loom links — only share the preview links the tool returns. Teammates can also use /sample for a private reply.`
+    : ""
+}
 `;
 }
 
-function systemPrompt(canvaOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn), cache_control: { type: "ephemeral" } }];
+function systemPrompt(canvaOn, samplesOn) {
+  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn), cache_control: { type: "ephemeral" } }];
 }
 
 const client = new Anthropic();
@@ -48,24 +63,26 @@ const MAX_ROUNDS = 12;
 
 /**
  * Ask Mimi for a reply to a conversation (Claude-format messages ending on
- * a user turn). Runs Canva tool calls when Canva is connected. Returns the reply text.
+ * a user turn). Runs ad sample and Canva tool calls when available. Returns the reply text.
  */
-export async function askMimi(messages) {
+export async function askMimi(messages, { requester } = {}) {
   const canvaOn = canvaReady();
+  const samplesOn = samplesConfigured();
+  const tools = [...(samplesOn ? sampleTools : []), ...(canvaOn ? canvaTools : [])];
   const convo = [...messages];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const response = await client.beta.messages.create({
       model: config.model,
       max_tokens: config.maxTokens,
-      system: systemPrompt(canvaOn),
+      system: systemPrompt(canvaOn, samplesOn),
       messages: convo,
       thinking: { type: "adaptive" },
       output_config: { effort: config.effort },
       // Retry classifier refusals on Anthropic's recommended fallback model.
       fallbacks: "default",
       betas: BETAS,
-      ...(canvaOn && { tools: canvaTools }),
+      ...(tools.length && { tools }),
     });
 
     if (response.stop_reason === "refusal") {
@@ -77,7 +94,9 @@ export async function askMimi(messages) {
       const calls = response.content.filter((b) => b.type === "tool_use");
       const results = await Promise.all(
         calls.map(async (call) => {
-          const { content, isError } = await runCanvaTool(call.name, call.input);
+          const { content, isError } = sampleToolNames.has(call.name)
+            ? await runSampleTool(call.name, call.input, { requester })
+            : await runCanvaTool(call.name, call.input);
           return { type: "tool_result", tool_use_id: call.id, content, ...(isError && { is_error: true }) };
         }),
       );

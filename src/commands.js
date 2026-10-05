@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { canvaCommand } from "./canva/command.js";
+import { sampleCommand, samplesCommand } from "./samples/command.js";
 
 /**
  * Slash commands for Mimi's core request types. Each one turns its options
@@ -72,6 +73,8 @@ export const commands = [
         .filter(Boolean)
         .join("\n"),
   },
+  sampleCommand,
+  samplesCommand,
   canvaCommand,
 ];
 

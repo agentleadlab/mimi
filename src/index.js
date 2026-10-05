@@ -89,7 +89,8 @@ client.on(Events.MessageCreate, async (message) => {
       .concat(message)
       .map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
 
-    const reply = await askMimi(buildClaudeMessages(entries));
+    const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
+    const reply = await askMimi(buildClaudeMessages(entries), { requester });
     stopTyping();
 
     await send(message, chunkMessage(reply));
@@ -120,6 +121,10 @@ const logExpired = (interaction) =>
   console.warn(`Skipped /${interaction.commandName}: Discord says it was already handled or timed out.`);
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    const command = commandsByName.get(interaction.commandName);
+    return command?.autocomplete?.(interaction).catch((err) => console.warn("Autocomplete failed:", err.message));
+  }
   if (!interaction.isChatInputCommand()) return;
   const command = commandsByName.get(interaction.commandName);
   if (!command) return;
@@ -148,7 +153,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       },
     ]);
 
-    const reply = await askMimi(messages);
+    const reply = await askMimi(messages, { requester: interaction.member?.displayName ?? interaction.user.username });
     const [first, ...rest] = chunkMessage(reply);
     await interaction.editReply(first);
     for (const chunk of rest) await interaction.followUp(chunk);
@@ -158,12 +163,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-if (canvaConfigured) {
+// The web server hosts sample preview pages and the Canva sign-in callback.
+if (config.publicUrl) {
   startServer({
     onCanvaConnected: ({ connectedBy }) => console.log(`Canva connected by ${connectedBy}.`),
   });
 } else {
-  console.log(`Canva not configured — missing: ${missingCanvaVars().join(", ")}.`);
+  console.log("No public URL (generate a Railway domain or set PUBLIC_URL) — sample previews and Canva are off.");
 }
+if (!canvaConfigured) console.log(`Canva not configured — missing: ${missingCanvaVars().join(", ")}.`);
 
 client.login(config.discordToken);

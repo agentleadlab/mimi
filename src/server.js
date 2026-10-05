@@ -1,6 +1,7 @@
 import http from "node:http";
-import { config } from "./config.js";
+import { canvaConfigured, config as appConfig } from "./config.js";
 import { CORE_SCOPES, handleCallback, retryWithFewerScopes } from "./canva/auth.js";
+import { servePreview } from "./samples/page.js";
 
 function page(res, status, title, message) {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -19,7 +20,10 @@ export function startServer({ onCanvaConnected } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
 
-    if (url.pathname === "/canva/callback") {
+    const preview = url.pathname.match(/^\/p\/([A-Za-z0-9_-]{8,64})$/);
+    if (preview && (req.method === "GET" || req.method === "POST")) return servePreview(req, res, preview[1]);
+
+    if (url.pathname === "/canva/callback" && canvaConfigured) {
       const { code, state, error } = Object.fromEntries(url.searchParams);
       if (error === "invalid_scope") {
         const retry = retryWithFewerScopes(state);
@@ -68,6 +72,6 @@ export function startServer({ onCanvaConnected } = {}) {
     res.end("Not found");
   });
 
-  server.listen(config.port, () => console.log(`Web server listening on port ${config.port}.`));
+  server.listen(appConfig.port, () => console.log(`Web server listening on port ${appConfig.port}.`));
   return server;
 }

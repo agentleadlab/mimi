@@ -19,6 +19,8 @@ Slash commands:
 | `/copy brief [platform] [variations]` | Copy with variations to test |
 | `/review design [context]` | Structured feedback on an uploaded design |
 | `/plan timeframe [focus] [channels]` | Content calendar |
+| `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
+| `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 
 ## Setup
 
@@ -66,6 +68,9 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message |
 | `MIMI_REPLY_TO_NAME` | `true` | Reply when someone says "Mimi". Set to `false` to require an @mention |
 | `MIMI_STATUS` | `💅 Always raising the standard` | Custom status under her name. Set it empty to hide it |
+| `SAMPLES_SHEET_URL` | (unset) | Google Sheet with the ad sample library (see below) |
+| `PREVIEW_MINUTES` / `PREVIEW_LINK_DAYS` | `15` / `7` | Client viewing window, and how long unopened links last |
+| `BRAND_NAME` | `Agent Lead Lab` | Name on the client-facing preview page |
 | `MIMI_MODEL` | `claude-opus-5` | Claude model |
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |
@@ -101,6 +106,18 @@ Setup:
 5. Run `/canva status` to confirm the connection and see which features the account's plan allows.
 
 Then just ask, e.g. *"Mimi, bulk create listing posts from the Just Listed template for these 5 addresses"*, or *"resize this design for Stories and LinkedIn"*.
+
+### Ad sample library
+
+Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, so clients can watch them without ever getting the Loom link itself.
+
+- The library lives in a Google Sheet with the columns **Sample Name, Vertical, Campaign/Context, Date Added, Loom Link, Tags**. Share it as *Anyone with the link can view*, and put its link in `SAMPLES_SHEET_URL`. The sheet contains the Loom links, so don't share the sheet link itself. Mimi re-reads the sheet every 5 minutes, or right away with `/samples refresh`.
+- A teammate asks in chat (*"Mimi, I need a vet ad sample for John"*) or uses `/sample`, and gets one link per matching sample to send to the client.
+- The client sees a branded **Watch sample** page. Their 15 minutes start when they press Watch, so link previews in texts and emails don't use up the time. When time's up the page locks and asks them to contact their rep. Links nobody opens expire after 7 days.
+- `/samples log` shows who requested each link, for which client, and whether it was opened.
+- Loom videos must be viewable by anyone with the link (Loom's default) for the embedded player to work.
+
+This stops casual forwarding, but it isn't DRM: a determined viewer could still find the Loom video address in the page code during their window.
 
 ## Hosting
 

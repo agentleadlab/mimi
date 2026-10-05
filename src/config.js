@@ -37,6 +37,15 @@ export const config = {
     (process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`)
   )?.replace(/\/+$/, ""),
   port: Number(process.env.PORT) || 3000,
+
+  // Ad sample library: a Google Sheet shared as "Anyone with the link can view".
+  samplesSheetUrl: process.env.SAMPLES_SHEET_URL,
+  // Clients get this many minutes from first opening a preview link.
+  previewMinutes: Number(process.env.PREVIEW_MINUTES) || 15,
+  // Links that are never opened stop working after this many days.
+  unopenedLinkDays: Number(process.env.PREVIEW_LINK_DAYS) || 7,
+  // Shown on the client-facing preview page.
+  brandName: process.env.BRAND_NAME || "Agent Lead Lab",
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
