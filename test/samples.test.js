@@ -193,3 +193,24 @@ test("/samples add validates input and writes the row through the sheet script",
     config.samplesLogUrl = config.samplesLogSecret = config.samplesSheetUrl = undefined;
   }
 });
+
+test("recognizes Loom links in their various forms", () => {
+  const id = "45dfa883b17a4ea2abf42e217d2145cf";
+  for (const link of [
+    `https://www.loom.com/share/${id}`,
+    `https://www.loom.com/share/${id}?sid=abc-123`,
+    `https://www.loom.com/share/Text-Verified-Trucker-${id}`,
+    `https://www.loom.com/share/Text-Verified-Trucker-${id}?sid=x`,
+    `https://loom.com/share/${id}`,
+    `www.loom.com/share/${id}`,
+    `https://www.loom.com/embed/${id}`,
+    `https://www.loom.com/v/${id}`,
+    `<https://www.loom.com/share/${id}>`,
+    `  https://www.loom.com/share/${id.toUpperCase()}  `,
+  ]) {
+    assert.equal(lib.loomVideoId(link), id, link);
+  }
+  for (const bad of ["https://youtube.com/watch?v=abc", "https://notloom.com/share/" + id, "loom", ""]) {
+    assert.equal(lib.loomVideoId(bad), null, bad);
+  }
+});

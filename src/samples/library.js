@@ -55,9 +55,17 @@ export function parseCsv(text) {
   return rows;
 }
 
-/** The Loom video ID from a share/embed link, or null. */
+/**
+ * The Loom video ID from a Loom link, or null. Handles share/embed/v links,
+ * titles in the path ("/share/My-Video-Title-<id>"), query strings, and
+ * links pasted inside <…>.
+ */
 export function loomVideoId(link) {
-  return String(link).match(/loom\.com\/(?:share|embed)\/([a-f0-9]{16,})/i)?.[1] ?? null;
+  const m = String(link)
+    .trim()
+    .replace(/^<|>$/g, "")
+    .match(/^(?:https?:\/\/)?(?:[\w-]+\.)*loom\.com\/(?:share|embed|v)\/(?:[^?#\s]*?[-/])?([a-f0-9]{16,})(?:[?#/\s]|$)/i);
+  return m ? m[1].toLowerCase() : null;
 }
 
 const norm = (s) => String(s ?? "").trim();
