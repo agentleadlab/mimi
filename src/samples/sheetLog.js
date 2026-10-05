@@ -29,7 +29,11 @@ async function send(event) {
   try {
     body = JSON.parse(text);
   } catch {
-    throw new Error(`unexpected response (${res.status}) — is the Apps Script deployed with access "Anyone"?`);
+    const tail = config.samplesLogUrl.replace(/\/(exec|dev)$/, "").slice(-8);
+    throw new Error(
+      `unexpected response (${res.status}) from SAMPLES_LOG_URL ending "…${tail}/${config.samplesLogUrl.split("/").pop()}" — ` +
+        'check it is the Web app URL (ends in /exec) of a deployment with access "Anyone"',
+    );
   }
   if (!body.ok) throw new Error(body.error === "unauthorized" ? "secret doesn't match SAMPLES_LOG_SECRET" : body.error);
 }
