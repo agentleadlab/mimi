@@ -1,5 +1,5 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials } from "discord.js";
-import { canvaConfigured, config, missingRequired } from "./config.js";
+import { canvaConfigured, config, missingCanvaVars, missingRequired } from "./config.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { chunkMessage } from "./text.js";
@@ -149,7 +149,7 @@ if (canvaConfigured) {
     onCanvaConnected: ({ connectedBy }) => console.log(`Canva connected by ${connectedBy}.`),
   });
 } else {
-  console.log("Canva not configured (set CANVA_CLIENT_ID, CANVA_CLIENT_SECRET and PUBLIC_URL to enable it).");
+  console.log(`Canva not configured — missing: ${missingCanvaVars().join(", ")}.`);
 }
 
 client.login(config.discordToken);

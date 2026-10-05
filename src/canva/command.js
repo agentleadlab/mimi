@@ -1,12 +1,15 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { canvaConfigured } from "../config.js";
+import { canvaConfigured, missingCanvaVars } from "../config.js";
 import { connection, createConnectLink, disconnect, redirectUri } from "./auth.js";
 import { canva } from "./api.js";
 import { describeCanvaError } from "./tools.js";
 
-const NOT_CONFIGURED =
-  "Canva isn't set up on the server yet. Add `CANVA_CLIENT_ID`, `CANVA_CLIENT_SECRET` and `PUBLIC_URL` to Mimi's environment " +
-  "(see the README's Canva section), then try again.";
+function notConfiguredMessage() {
+  return (
+    `Canva isn't set up on the server yet — missing: ${missingCanvaVars().map((v) => `\`${v}\``).join(", ")}. ` +
+    "Add them in Railway's Variables tab (exact names, on the mimi service), deploy, then try again."
+  );
+}
 
 /** Admin-only /canva command: connect, status, disconnect. */
 export const canvaCommand = {
@@ -20,7 +23,7 @@ export const canvaCommand = {
 
   async handle(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-    if (!canvaConfigured) return interaction.editReply(NOT_CONFIGURED);
+    if (!canvaConfigured) return interaction.editReply(notConfiguredMessage());
 
     const sub = interaction.options.getSubcommand();
 

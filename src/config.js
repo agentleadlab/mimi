@@ -35,7 +35,15 @@ export const config = {
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
 };
 
-export const canvaConfigured = Boolean(config.canvaClientId && config.canvaClientSecret && config.publicUrl);
+export function missingCanvaVars() {
+  return [
+    !config.canvaClientId && "CANVA_CLIENT_ID",
+    !config.canvaClientSecret && "CANVA_CLIENT_SECRET",
+    !config.publicUrl && "PUBLIC_URL",
+  ].filter(Boolean);
+}
+
+export const canvaConfigured = missingCanvaVars().length === 0;
 
 export function missingRequired() {
   const missing = [];
