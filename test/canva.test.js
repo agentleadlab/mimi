@@ -143,3 +143,11 @@ test("listing templates explains a missing permission", async () => {
   assert.equal(r.isError, true);
   assert.match(r.content, /brandtemplate:meta:read/);
 });
+
+test("sign-in link encodes scope spaces as %20 like Canva expects", async () => {
+  const { createConnectLink } = await import("../src/canva/auth.js");
+  const link = createConnectLink("kath");
+  const rawScope = link.match(/[?&]scope=([^&]*)/)[1];
+  assert.ok(!rawScope.includes("+"), rawScope);
+  assert.match(rawScope, /^design:meta:read%20design:content:read/);
+});

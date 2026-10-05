@@ -65,16 +65,21 @@ function authorizeUrl(connectedBy, attempt) {
   const state = crypto.randomBytes(24).toString("base64url");
   putPending(state, { verifier, expiresAt: Date.now() + LINK_TTL_MS, connectedBy, attempt });
 
-  const params = new URLSearchParams({
+  const params = {
+    code_challenge_method: "s256",
     response_type: "code",
     client_id: config.canvaClientId,
     redirect_uri: redirectUri(),
     scope: SCOPE_SETS[attempt].join(" "),
     code_challenge: challenge,
-    code_challenge_method: "s256",
     state,
-  });
-  return `${AUTHORIZE_URL}?${params}`;
+  };
+  // Encode spaces as %20, not "+": Canva doesn't decode "+" in the scope list
+  // and rejects the whole sign-in as invalid_scope.
+  const query = Object.entries(params)
+    .map(([k, v]) => `${k}=${k === "scope" ? encodeURIComponent(v).replace(/%3A/gi, ":") : encodeURIComponent(v)}`)
+    .join("&");
+  return `${AUTHORIZE_URL}?${query}`;
 }
 
 /** A one-time Canva sign-in link (valid 15 minutes). */
