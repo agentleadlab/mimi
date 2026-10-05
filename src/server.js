@@ -31,8 +31,10 @@ export function startServer({ onCanvaConnected } = {}) {
           res,
           400,
           "Canva permissions missing",
-          "Your Canva app doesn't have every permission Mimi asks for. In the Canva developer portal, open your app → " +
-            `Permissions and turn on at least: ${CORE_SCOPES.join(", ")}. Save, then run /canva connect in Discord again.`,
+          "Canva refused the permissions Mimi asked for. Easiest fix: in the Canva developer portal, open your app → " +
+            "Redirect URLs → Authorization URL generator, copy the scope list from the URL it shows " +
+            "(the part after scope=, with %20 turned into spaces), and save it in Railway as the variable CANVA_SCOPES. " +
+            `It should include at least: ${CORE_SCOPES.join(", ")}. Then run /canva connect in Discord again.`,
         );
       }
       if (error) return page(res, 400, "Canva not connected", `Canva said: ${error}. Run /canva connect in Discord to try again.`);

@@ -36,14 +36,34 @@ export function redirectUri() {
   return `${config.publicUrl}/canva/callback`;
 }
 
-// state -> { verifier, expiresAt, connectedBy, attempt }
-const pending = new Map();
+// In-progress sign-ins (state -> { verifier, expiresAt, connectedBy, attempt }),
+// saved to disk so a restart mid-sign-in doesn't break the flow.
+const PENDING_KEY = "canvaPending";
+
+function putPending(state, entry) {
+  const now = Date.now();
+  const all = Object.fromEntries(
+    Object.entries(getState(PENDING_KEY) ?? {}).filter(([, e]) => e.expiresAt > now),
+  );
+  all[state] = entry;
+  setState(PENDING_KEY, all);
+}
+
+function takePending(state) {
+  const all = getState(PENDING_KEY) ?? {};
+  const entry = all[state];
+  if (entry) {
+    delete all[state];
+    setState(PENDING_KEY, all);
+  }
+  return entry && entry.expiresAt > Date.now() ? entry : null;
+}
 
 function authorizeUrl(connectedBy, attempt) {
   const verifier = crypto.randomBytes(64).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
   const state = crypto.randomBytes(24).toString("base64url");
-  pending.set(state, { verifier, expiresAt: Date.now() + LINK_TTL_MS, connectedBy, attempt });
+  putPending(state, { verifier, expiresAt: Date.now() + LINK_TTL_MS, connectedBy, attempt });
 
   const params = new URLSearchParams({
     response_type: "code",
@@ -67,9 +87,8 @@ export function createConnectLink(connectedBy) {
  * fewer scopes, or null if there's nothing smaller to try.
  */
 export function retryWithFewerScopes(state) {
-  const entry = pending.get(state);
-  pending.delete(state);
-  if (!entry || entry.expiresAt < Date.now()) return null;
+  const entry = takePending(state);
+  if (!entry) return null;
   const next = entry.attempt + 1;
   if (next >= SCOPE_SETS.length) return null;
   console.warn(`Canva rejected scopes [${SCOPE_SETS[entry.attempt].join(" ")}]; retrying with fewer.`);
@@ -111,9 +130,8 @@ function save(tokens, extra = {}) {
 
 /** Finish the OAuth flow from the redirect. */
 export async function handleCallback({ code, state }) {
-  const entry = pending.get(state);
-  pending.delete(state);
-  if (!entry || entry.expiresAt < Date.now()) {
+  const entry = takePending(state);
+  if (!entry) {
     throw new Error("This sign-in link expired or was already used. Run /canva connect in Discord for a fresh one.");
   }
   const tokens = await tokenRequest({
