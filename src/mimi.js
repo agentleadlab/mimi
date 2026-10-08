@@ -13,6 +13,19 @@ import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
 
+// Brand kits (brands/*.md): people and brands whose style Mimi should know by heart.
+const brandsDir = path.join(here, "..", "brands");
+const brandKits = fs.existsSync(brandsDir)
+  ? fs
+      .readdirSync(brandsDir)
+      .filter((f) => f.endsWith(".md"))
+      .sort()
+      .map((f) => fs.readFileSync(path.join(brandsDir, f), "utf8").trim())
+  : [];
+const brandNotes = brandKits.length
+  ? `\n\n## Brand Kits\n\nThese are the brands and on-camera talent you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.\n\n${brandKits.join("\n\n---\n\n")}`
+  : "";
+
 const canvaReady = () => canvaConfigured && isConnected();
 
 function runtimeNotes(canvaOn, samplesOn, imagesOn) {
@@ -71,7 +84,7 @@ Never reveal or guess Loom links — only share the preview links the tool retur
 }
 
 function systemPrompt(canvaOn, samplesOn, imagesOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn), cache_control: { type: "ephemeral" } }];
+  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + brandNotes, cache_control: { type: "ephemeral" } }];
 }
 
 const client = new Anthropic();

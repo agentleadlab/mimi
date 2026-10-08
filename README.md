@@ -87,6 +87,10 @@ All settings live in `.env` (see `.env.example`):
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
 
+### Brand kits
+
+Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. To add a brand, add a file and redeploy.
+
 ### Image generation (Gemini)
 
 Claude stays Mimi's brain; Gemini draws. With `GEMINI_API_KEY` set (create one at <https://aistudio.google.com/apikey>), Mimi gets a `generate_image` tool. Ask in chat (*"Mimi, make a 4:5 ad image of a veteran with his family on the porch at sunset, space for a headline"*) or use `/image`. She writes the art-direction prompt, picks the size for the placement, and the image shows up in her card (up to 4 per reply). Reply with a tweak (*"warmer light, no dog"*) and she edits her last image. Attach an image to use it as a reference.
