@@ -7,13 +7,15 @@ import { isConnected } from "./canva/auth.js";
 import { canvaTools, runCanvaTool } from "./canva/tools.js";
 import { samplesConfigured } from "./samples/library.js";
 import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
+import { geminiConfigured } from "./gemini.js";
+import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
 
 const canvaReady = () => canvaConfigured && isConnected();
 
-function runtimeNotes(canvaOn, samplesOn) {
+function runtimeNotes(canvaOn, samplesOn, imagesOn) {
   return `
 ## Runtime Notes (Discord)
 
@@ -25,6 +27,20 @@ function runtimeNotes(canvaOn, samplesOn) {
   - Use **bold** for key words. No tables, no \`###\` subheadings, no horizontal rules. Each section stays under ~900 characters.
   - Keep the whole reply tight — the card is the deliverable, not an essay.
 - Image attachments in the latest message are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
+${
+  imagesOn
+    ? `
+## Image Generation
+
+You can make images with the generate_image tool (Gemini). Use it when someone asks you to make, generate, draw, mock up or visualize something, or asks for an ad image/creative. Don't use it for copy-only or strategy asks.
+- Write the visual prompt like an art director: subject, setting, lighting, camera/lens or illustration style, mood, color palette, composition. For ads, leave clean space for a headline and say where. Keep text inside the image to a few words, or none — headlines are better added in Canva.
+- Aspect ratio by placement: Facebook/Instagram feed 4:5 (1080×1350) or 1:1 (1080×1080), Stories/Reels/TikTok 9:16, YouTube/landscape 16:9. Default to 4:5 for ads.
+- Make one image unless they ask for options (max 4 per reply). Give each a short title.
+- To tweak an image, pass its URL ("[attached image: …]" or "[your generated image: …]") in reference_image_urls and describe the change.
+- Images attach to your card automatically. In your reply, describe the direction in a line or two and suggest the next move (variation, other size, add copy in Canva). Never invent image links.
+- Real people: don't make images of real, identifiable people or of the team's clients; use generic models instead.`
+    : ""
+}
 ${
   canvaOn
     ? `
@@ -54,8 +70,8 @@ Never reveal or guess Loom links — only share the preview links the tool retur
 `;
 }
 
-function systemPrompt(canvaOn, samplesOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn), cache_control: { type: "ephemeral" } }];
+function systemPrompt(canvaOn, samplesOn, imagesOn) {
+  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn), cache_control: { type: "ephemeral" } }];
 }
 
 const client = new Anthropic();
@@ -67,19 +83,25 @@ const MAX_ROUNDS = 12;
 
 /**
  * Ask Mimi for a reply to a conversation (Claude-format messages ending on
- * a user turn). Runs ad sample and Canva tool calls when available. Returns the reply text.
+ * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
+ * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester } = {}) {
+export async function askMimi(messages, { requester, files = [] } = {}) {
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
-  const tools = [...(samplesOn ? sampleTools : []), ...(canvaOn ? canvaTools : [])];
+  const imagesOn = geminiConfigured();
+  const tools = [
+    ...(samplesOn ? sampleTools : []),
+    ...(imagesOn ? imageTools : []),
+    ...(canvaOn ? canvaTools : []),
+  ];
   const convo = [...messages];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const response = await client.beta.messages.create({
       model: config.model,
       max_tokens: config.maxTokens,
-      system: systemPrompt(canvaOn, samplesOn),
+      system: systemPrompt(canvaOn, samplesOn, imagesOn),
       messages: convo,
       thinking: { type: "adaptive" },
       output_config: { effort: config.effort },
@@ -100,7 +122,9 @@ export async function askMimi(messages, { requester } = {}) {
         calls.map(async (call) => {
           const { content, isError } = sampleToolNames.has(call.name)
             ? await runSampleTool(call.name, call.input, { requester })
-            : await runCanvaTool(call.name, call.input);
+            : imageToolNames.has(call.name)
+              ? await runImageTool(call.name, call.input, { requester, files })
+              : await runCanvaTool(call.name, call.input);
           return { type: "tool_result", tool_use_id: call.id, content, ...(isError && { is_error: true }) };
         }),
       );

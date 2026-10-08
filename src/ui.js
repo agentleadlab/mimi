@@ -106,7 +106,7 @@ const embedSize = (e) =>
  * Turn a reply into Discord messages, each `{ embeds: [...] }`, within all
  * embed limits. Long replies continue across embeds/messages.
  */
-export function replyMessages(text, { requester } = {}) {
+export function replyMessages(text, { requester, files = [] } = {}) {
   const { title, intro, sections } = parseReply(text || "…");
   const footerText = requester ? `for ${requester}` : undefined;
 
@@ -159,5 +159,28 @@ export function replyMessages(text, { requester } = {}) {
     size += n;
   }
   if (batch.length) messages.push({ embeds: batch });
+  return files.length ? attachImages(messages, files) : messages;
+}
+
+/**
+ * Attach generated images: the first shows inside the reply's first card;
+ * any others follow in one extra message as image cards.
+ */
+function attachImages(messages, files) {
+  const toFile = (f) => ({ attachment: f.buffer, name: f.name });
+  const [hero, ...more] = files;
+  const first = messages[0];
+  first.embeds[0] = { ...first.embeds[0], image: { url: `attachment://${hero.name}` } };
+  first.files = [toFile(hero)];
+  if (more.length) {
+    messages.push({
+      embeds: more.map((f) => ({
+        color: COLORS.brand,
+        ...(f.title && { title: clip(f.title, LIMITS.title) }),
+        image: { url: `attachment://${f.name}` },
+      })),
+      files: more.map(toFile),
+    });
+  }
   return messages;
 }

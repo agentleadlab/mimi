@@ -73,6 +73,34 @@ export const commands = [
         .filter(Boolean)
         .join("\n"),
   },
+  {
+    data: new SlashCommandBuilder()
+      .setName("image")
+      .setDescription("Have Mimi generate an image (ad creative, photo, concept)")
+      .addStringOption((o) => o.setName("prompt").setDescription("What should the image show?").setRequired(true))
+      .addStringOption((o) =>
+        o
+          .setName("size")
+          .setDescription("Where it runs (default: feed 4:5)")
+          .addChoices(
+            { name: "Feed portrait 4:5 (1080×1350)", value: "4:5" },
+            { name: "Square 1:1 (1080×1080)", value: "1:1" },
+            { name: "Story / Reel 9:16", value: "9:16" },
+            { name: "Landscape 16:9", value: "16:9" },
+          ),
+      )
+      .addIntegerOption((o) => o.setName("options").setDescription("How many versions (1-4)").setMinValue(1).setMaxValue(4))
+      .addAttachmentOption((o) => o.setName("image").setDescription("Optional reference to edit or match")),
+    brief: (o) =>
+      [
+        `Generate an image with generate_image: ${o.getString("prompt")}`,
+        `Aspect ratio: ${o.getString("size") ?? "4:5"}`,
+        `Versions: ${o.getInteger("options") ?? 1}`,
+        o.getAttachment("image") && "Use the attached image as the reference.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+  },
   sampleCommand,
   samplesCommand,
   canvaCommand,

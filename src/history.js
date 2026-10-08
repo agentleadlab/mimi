@@ -67,8 +67,11 @@ export function buildClaudeMessages(entries) {
       if (isLatest) {
         for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) text += `\n[attached image: ${url}]`;
       }
-    } else if (!text) {
-      return;
+    } else {
+      // Mimi's generated images, so she can edit them in follow-ups.
+      for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) text += `\n[your generated image: ${url}]`;
+      text = text.trim();
+      if (!text) return;
     }
     blocks.push({ type: "text", text });
 

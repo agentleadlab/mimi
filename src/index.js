@@ -100,10 +100,11 @@ client.on(Events.MessageCreate, async (message) => {
       .map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
 
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
-    const reply = await askMimi(buildClaudeMessages(entries), { requester });
+    const files = [];
+    const reply = await askMimi(buildClaudeMessages(entries), { requester, files });
     stopTyping();
 
-    await send(message, replyMessages(reply, { requester }));
+    await send(message, replyMessages(reply, { requester, files }));
   } catch (err) {
     stopTyping();
     console.error(err);
@@ -168,8 +169,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ]);
 
     const requester = interaction.member?.displayName ?? interaction.user.username;
-    const reply = await askMimi(messages, { requester });
-    const [first, ...rest] = replyMessages(reply, { requester });
+    const files = [];
+    const reply = await askMimi(messages, { requester, files });
+    const [first, ...rest] = replyMessages(reply, { requester, files });
     await interaction.editReply(first);
     for (const p of rest) await interaction.followUp(p);
   } catch (err) {

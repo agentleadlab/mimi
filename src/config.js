@@ -49,6 +49,11 @@ export const config = {
   samplesLogSecret: process.env.SAMPLES_LOG_SECRET,
   // Shown on the client-facing preview page.
   brandName: process.env.BRAND_NAME || "Agent Lead Lab",
+  // Gemini image generation (aistudio.google.com/apikey).
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  geminiImageModel: process.env.GEMINI_IMAGE_MODEL || "gemini-nano-banana-2.1",
+  // Used through the older generateContent API if the Interactions API isn't available.
+  geminiLegacyImageModel: process.env.GEMINI_LEGACY_IMAGE_MODEL || "gemini-2.5-flash-image",
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

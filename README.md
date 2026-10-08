@@ -20,6 +20,7 @@ Slash commands:
 | `/copy brief [platform] [variations]` | Copy with variations to test |
 | `/review design [context]` | Structured feedback on an uploaded design |
 | `/plan timeframe [focus] [channels]` | Content calendar |
+| `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
 | `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
@@ -78,11 +79,19 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max`. Higher means deeper thinking, slower and pricier |
 | `MIMI_MAX_TOKENS` | `16000` | Max reply length |
 | `MIMI_HISTORY_LIMIT` | `20` | How many earlier channel messages she reads |
+| `GEMINI_API_KEY` | (unset) | Turns on image generation (see below) |
+| `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
 | `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` | (unset) | Canva integration credentials (see below) |
 | `PUBLIC_URL` | Railway's generated domain | Public https URL of the deployment, for Canva sign-in |
 | `MIMI_DATA_DIR` | `/data` if it exists, else `./data` | Where the Canva login is stored |
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
+
+### Image generation (Gemini)
+
+Claude stays Mimi's brain; Gemini draws. With `GEMINI_API_KEY` set (create one at <https://aistudio.google.com/apikey>), Mimi gets a `generate_image` tool. Ask in chat (*"Mimi, make a 4:5 ad image of a veteran with his family on the porch at sunset, space for a headline"*) or use `/image`. She writes the art-direction prompt, picks the size for the placement, and the image shows up in her card (up to 4 per reply). Reply with a tweak (*"warmer light, no dog"*) and she edits her last image. Attach an image to use it as a reference.
+
+Mimi calls Gemini's Interactions API and falls back to the older `generateContent` API (`GEMINI_LEGACY_IMAGE_MODEL`, default `gemini-2.5-flash-image`) if that isn't available for your key. Gemini images carry Google's invisible SynthID watermark. Image generation is billed to the Google account behind the key.
 
 ### Canva
 
@@ -156,6 +165,7 @@ Layout:
 - `src/index.js`: Discord client, message and slash-command handling
 - `src/mimi.js`: Claude API call and error messages
 - `src/history.js`: turns channel history into a Claude conversation
-- `src/text.js`: splits replies to fit Discord's 2,000-character limit
+- `src/ui.js`: branded cards, within Discord's embed limits
+- `src/gemini.js`, `src/images/tools.js`: Gemini image generation
 - `src/commands.js`: slash command definitions
 - `prompts/mimi.md`: Mimi's system prompt
