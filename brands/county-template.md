@@ -1,24 +1,27 @@
-# County Template — Canva brand template EAHXjnXVuYU
+# MTG County Ads — Canva brand template EAHXjnXVuYU
 
-The team's county ad template: https://www.canva.com/brand/brand-templates/EAHXjnXVuYU
-**Process:** keep the layout and all copy exactly the same. Change only the **county name** and the **colors**. One design per county.
+The team's Mortgage Protection county ads, made from one Canva brand template: https://www.canva.com/brand/brand-templates/EAHXjnXVuYU
 
-## The design ("MTG - County Template")
-Square Mortgage Protection ad on a dark, blurred house photo. Top line: the county, in big white all caps (the `county` field, shown as {{COUNTY}} in the template). Under it, the "MORTGAGE PROTECTION" headline in neon green. Below that: a "FOR LOCAL RESIDENTS" ribbon, a two-line body, three check-mark benefits, "Tap Your Age to See if you Qualify" and the age buttons 20-39 / 40-59 / 60-79. The county goes in ALL CAPS (e.g. "HARRIS COUNTY"). Long names (e.g. "SAN BERNARDINO COUNTY") may wrap or shrink, so mention them so someone checks the layout.
+## The design
+Square ad. The county is the top line in big neon-green caps ("GREENVILLE COUNTY"), then "MORTGAGE PROTECTION PROGRAM", a "FOR LOCAL RESIDENTS" ribbon, a two-line body, three check-mark benefits, "Tap Your Age to See if you Qualify" and the age buttons 20-39 / 40-59 / 60-79, all over a softly blurred, green-tinted background photo. Layout, copy and colors stay the same. **Only the county and the background photo change.**
 
-## Color variants
-The colors in this design are text and shape colors (headline, ribbon, checks, age buttons), which the API can't change. So each color scheme is its own published brand template named "MTG - County Template - <Color>" (e.g. "- Blue", "- Red"). The original green one may have no suffix. To pick colors, list brand templates, find every "MTG - County Template…" variant, and use the one that matches the requested color. If none is requested, rotate through the variants across a batch so neighboring counties differ. If a requested color has no variant, say which colors exist. If there's only one variant, run it and say the colors stay as designed.
+## How the team organizes them (follow exactly)
+- **One Canva project folder per state:** `MTG - <Full State Name>`, e.g. "MTG - South Carolina".
+- **Each state run is usually 4 counties. Each county gets 3 versions** with different backgrounds, so a state is typically 12 designs.
+- **Design titles:** `<NN> - <County> - <ST>`, e.g. "30 - Greenville - SC". County is without the word "County"; ST is the 2-letter state code. NN is a running number across ALL county ads and never restarts per state: continue from the highest existing number. To find it, call canva_search_designs with no query (most recent first, limit 50), and with the query " - <ST>" if needed. Take the highest leading number in titles shaped like "NN - County - ST", and start at that + 1. Say which number you started from. If you can't tell, ask before running.
+- Number counties in the order the teammate listed them, with each county's versions consecutive (31, 32, 33 = Greenville v1–v3).
 
-## How to run it
-1. Original (green) template ID: `EAHXjnXVuYU`. Find the color variants with canva_list_brand_templates. Call canva_get_template_fields on the chosen one.
-2. Map the fields:
-   - The text field for the county (named like "county" / "county_name"): the county exactly as given, in the template's style (e.g. "Harris County" if the original says "… County"; keep the original's casing).
-   - If a variant does have image fields for color blocks (named like "color", "bg", "color_1"…), fill them with `{ "color": "#HEX" }` (optionally `"gradient_to"`) in that variant's palette.
-   - Leave every other field alone. Don't rewrite copy unless asked.
-3. **Colors:** pick the variant per the section above, and say which color each county got.
-4. Run canva_autofill per variant, one entry per county (title: "<County> County — MTG <Color>"), up to 25 per call. Share every edit link, and offer to export PNGs (canva_export) or resize.
-5. Before a big batch (over 5 counties), confirm the field mapping and palettes once.
+## How to run a state
+1. Check the template: canva_get_template_fields on `EAHXjnXVuYU` (or find "MTG - County Template" with canva_list_brand_templates). Expect a text field for the county (e.g. `county`) and ideally an image field for the background (e.g. `background`).
+2. Values:
+   - County text field: `"<COUNTY NAME> COUNTY"` in all caps, e.g. "HORRY COUNTY". (If the template's county field already ends in "COUNTY", send just the name.)
+   - Background image field, if it exists: give each of the 3 versions a different `{ "generate": "...", "aspect_ratio": "1:1" }` prompt. Use realistic photos that fit mortgage protection: a well-kept suburban home exterior with a lawn; a happy family on the porch or in front of their home; a home with an American flag on the porch; a couple holding keys at their front door; and so on. Make them regionally believable for that county (Lowcountry homes for Charleston, desert stucco for Maricopa, brick colonials for the Midwest). Use natural daylight, no text, no logos and no recognizable real people. Vary them across a county's 3 versions.
+   - No background field: make 1 version per county, not 3 identical copies, and tell them that adding an image data field on the background photo unlocks the 3 versions.
+3. Before running, show the plan in one short card: the folder, the numbering range and the title list. Run when they confirm, or right away if they said "go".
+4. canva_autofill with `folder: "MTG - <State>"`, with one entry per design and `title` as above (max 25 per call, so one state per call).
+5. Reply with the folder it's in, then each county with its version links. Offer PNG exports.
 
-## Limits to explain if they come up
-- Canva's API can only recolor parts of the template that are set up as **image** data fields. Text colors and plain shapes keep the template's colors. If they need those changed too, the fix is in Canva: make the colored shapes image frames connected as data fields, or keep one brand template per color scheme.
-- If canva_get_template_fields shows no color/image fields, tell them colors will stay as designed and explain the setup above.
+## Fix-ups
+- Designs made earlier or outside a folder: canva_move_to_folder with the state folder and their IDs (find them with canva_search_designs).
+- If Canva says folder permissions are missing, the designs still exist. Share the links and say an admin needs to enable folder:read and folder:write.
+- If brand template permissions are missing, say an admin must enable brandtemplate:meta:read and brandtemplate:content:read in the Canva integration, then /canva disconnect and /canva connect.

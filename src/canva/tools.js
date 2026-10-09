@@ -1,6 +1,7 @@
 import { canva, CanvaApiError, waitForJob } from "./api.js";
 import { CanvaNotConnectedError, connection, hasScope } from "./auth.js";
 import { swatchPng } from "./swatch.js";
+import { generateImage, geminiConfigured } from "../gemini.js";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_AUTOFILL = 25;
@@ -36,6 +37,54 @@ async function uploadBytes(bytes, name) {
   });
   const done = job.status === "success" ? job : await waitForJob(`/v1/asset-uploads/${job.id}`);
   return done.asset.id;
+}
+
+/** Find a folder by name inside a parent ("root" = Projects), case-insensitively. */
+async function findFolder(parentId, name) {
+  let continuation;
+  do {
+    const data = await canva("GET", `/v1/folders/${encodeURIComponent(parentId)}/items`, {
+      query: { item_types: "folder", continuation },
+    });
+    const hit = (data.items ?? []).find((i) => i.folder?.name?.trim().toLowerCase() === name.toLowerCase());
+    if (hit) return hit.folder;
+    continuation = data.continuation;
+  } while (continuation);
+  return null;
+}
+
+/** Resolve a folder path like "MTG Counties/South Carolina" under Projects, creating what's missing. */
+async function ensureFolderPath(path) {
+  if (!hasScope("folder:write")) {
+    throw new Error(
+      "Mimi's Canva connection can't manage folders (folder:read and folder:write aren't enabled). " +
+        "An admin can enable them in the Canva integration's Scopes, then run /canva disconnect and /canva connect.",
+    );
+  }
+  const parts = String(path).split("/").map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) throw new Error("Folder name is empty.");
+  let parent = "root";
+  let folder;
+  for (const name of parts) {
+    folder = await findFolder(parent, name);
+    if (!folder) ({ folder } = await canva("POST", "/v1/folders", { body: { name: name.slice(0, 255), parent_folder_id: parent } }));
+    parent = folder.id;
+  }
+  return { id: folder.id, path: `Projects / ${parts.join(" / ")}` };
+}
+
+async function moveToFolder(folderId, designIds) {
+  const moved = [];
+  const failed = [];
+  for (const id of designIds) {
+    try {
+      await canva("POST", "/v1/folders/move", { body: { to_folder_id: folderId, item_id: id } });
+      moved.push(id);
+    } catch (err) {
+      failed.push({ id, error: describeCanvaError(err) });
+    }
+  }
+  return { moved: moved.length, ...(failed.length && { failed }) };
 }
 
 const handlers = {
@@ -76,7 +125,13 @@ const handlers = {
     };
   },
 
-  async canva_autofill({ brand_template_id, designs }) {
+  async canva_move_to_folder({ folder, design_ids }) {
+    if (!Array.isArray(design_ids) || design_ids.length === 0) throw new Error("`design_ids` must be a non-empty list.");
+    const target = await ensureFolderPath(folder);
+    return { folder: target, ...(await moveToFolder(target.id, design_ids.slice(0, 50))) };
+  },
+
+  async canva_autofill({ brand_template_id, designs, folder }) {
     if (!Array.isArray(designs) || designs.length === 0) throw new Error("`designs` must be a non-empty list.");
     if (designs.length > MAX_AUTOFILL) throw new Error(`At most ${MAX_AUTOFILL} designs per call — split the batch.`);
 
@@ -88,6 +143,10 @@ const handlers = {
         for (const [field, value] of Object.entries(row.fields ?? {})) {
           if (value && typeof value === "object" && value.image_url) {
             data[field] = { type: "image", asset_id: await uploadImage(value.image_url, field) };
+          } else if (value && typeof value === "object" && value.generate) {
+            if (!geminiConfigured()) throw new Error("Image generation isn't set up (GEMINI_API_KEY), so `generate` can't be used.");
+            const img = await generateImage({ prompt: String(value.generate), aspectRatio: value.aspect_ratio });
+            data[field] = { type: "image", asset_id: await uploadBytes(img.buffer, `${row.title ?? field}`) };
           } else if (value && typeof value === "object" && value.color) {
             const png = swatchPng(value.color, value.gradient_to);
             data[field] = { type: "image", asset_id: await uploadBytes(png, `${field} ${value.color}`) };
@@ -104,7 +163,15 @@ const handlers = {
         results.push({ row: i + 1, error: describeCanvaError(err) });
       }
     }
-    return { results };
+    if (!folder) return { results };
+    const ids = results.map((r) => r.design?.id).filter(Boolean);
+    if (!ids.length) return { results };
+    try {
+      const target = await ensureFolderPath(folder);
+      return { results, folder: { ...target, ...(await moveToFolder(target.id, ids)) } };
+    } catch (err) {
+      return { results, folder_error: `Designs were created in Projects, but couldn't be filed: ${describeCanvaError(err)}` };
+    }
   },
 
   async canva_resize({ design_id, sizes }) {
@@ -223,7 +290,9 @@ export const canvaTools = [
     description:
       `Bulk-create designs from a brand template, one design per entry in \`designs\` (max ${MAX_AUTOFILL} per call). ` +
       "Each entry maps template field names to values: a string for text fields, {\"image_url\": \"...\"} for image fields, " +
-      "or {\"color\": \"#HEX\", \"gradient_to\": \"#HEX\" (optional)} to fill an image field with a solid color or gradient — that's how to recolor a template, since autofill can't change element colors directly. " +
+      "{\"color\": \"#HEX\", \"gradient_to\": \"#HEX\" (optional)} to fill an image field with a solid color or gradient (how to recolor a template, since autofill can't change element colors directly), " +
+      "or {\"generate\": \"visual prompt\", \"aspect_ratio\": \"1:1\"} to fill an image field with a new AI image (Gemini), e.g. a fresh background per version. " +
+      "Pass `folder` (e.g. \"MTG - South Carolina\", or a path \"Parent/Child\") to file the new designs into that Canva project folder, created if missing. " +
       "Returns each new design's edit link, or a per-row error.",
     input_schema: {
       type: "object",
@@ -247,6 +316,14 @@ export const canvaTools = [
                     {
                       type: "object",
                       properties: {
+                        generate: { type: "string", description: "Visual prompt for a new AI image" },
+                        aspect_ratio: { type: "string", enum: ["1:1", "4:5", "9:16", "16:9", "3:4", "4:3"] },
+                      },
+                      required: ["generate"],
+                    },
+                    {
+                      type: "object",
+                      properties: {
                         color: { type: "string", description: "Hex color, e.g. #0B3D91" },
                         gradient_to: { type: "string", description: "Optional second hex for a top-to-bottom gradient" },
                       },
@@ -259,8 +336,21 @@ export const canvaTools = [
             required: ["fields"],
           },
         },
+        folder: { type: "string", description: "Canva project folder (path) to file the new designs into; created if missing." },
       },
       required: ["brand_template_id", "designs"],
+    },
+  },
+  {
+    name: "canva_move_to_folder",
+    description: "Move existing designs into a Canva project folder (path like \"MTG - South Carolina\"), creating the folder if missing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        folder: { type: "string" },
+        design_ids: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 50 },
+      },
+      required: ["folder", "design_ids"],
     },
   },
   {

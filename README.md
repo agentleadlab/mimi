@@ -89,7 +89,7 @@ If Claude's safety filters decline a request, it's automatically retried on Anth
 
 ### Brand kits
 
-Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. [`brands/county-template.md`](brands/county-template.md) is the county ad recipe: same Canva layout, new county name and colors (colors are filled into the template's image fields as generated swatches, since Canva autofill can't recolor elements). To add a brand or template recipe, add a file and redeploy.
+Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. [`brands/county-template.md`](brands/county-template.md) is the MTG county ad recipe: per state, 4 counties × 3 versions with AI-generated backgrounds, titled "NN - County - ST" and filed into a "MTG - <State>" Canva folder. To add a brand or template recipe, add a file and redeploy.
 
 ### Image generation (Gemini)
 
@@ -105,7 +105,7 @@ Without Canva, Mimi still does the creative direction and hands over full specs 
 - **Create** blank designs at any size, optionally starting from an attached image
 - **Resize** a design into other platform formats
 - **Export** designs as PNG, JPG, PDF, PPTX, GIF or MP4
-- **Search** the account's designs
+- **Search** the account's designs, and **file** designs into project folders (e.g. one folder per state)
 
 Brand templates and autofill need Canva Pro, Teams or Enterprise. Resize needs Pro or higher. The Canva API can't lay out text on a blank design, so production that has to be on brand goes through brand templates.
 
@@ -115,7 +115,7 @@ Setup:
 2. **Add a volume** so the Canva login survives redeploys. Right-click the service → **Attach Volume**, with mount path `/data`.
 3. **Create a Canva integration** at <https://www.canva.com/developers/integrations>. Your Canva account needs multi-factor authentication turned on first.
    - **Configuration:** copy the Client ID into `CANVA_CLIENT_ID`. Generate a secret and copy it into `CANVA_CLIENT_SECRET`.
-   - **Scopes:** enable design (meta read, content read, content write), asset (read, write), brand template (meta read, content read) and profile (read).
+   - **Scopes:** enable design (meta read, content read, content write), asset (read, write), brand template (meta read, content read), folder (read, write) and profile (read).
    - **Authentication:** add the authentication URL `<PUBLIC_URL>/canva/callback`.
    If Canva won't save a permission, Mimi still connects: when Canva rejects the sign-in with `invalid_scope`, she retries without brand-template listing, then without brand templates at all. Set `CANVA_SCOPES` (space-separated) to choose the scopes yourself.
 4. Redeploy. Then, in Discord, someone with **Manage Server** runs `/canva connect`, opens the link, and signs in to the Canva account Mimi should use.

@@ -125,8 +125,13 @@ test("sign-in falls back to fewer scopes when Canva rejects them", async () => {
   const scopesOf = (link) => new URL(link).searchParams.get("scope").split(" ");
   const first = createConnectLink("kath");
   assert.ok(scopesOf(first).includes("brandtemplate:meta:read"));
+  assert.ok(scopesOf(first).includes("folder:write"));
 
-  const second = retryWithFewerScopes(new URL(first).searchParams.get("state"));
+  const noFolders = retryWithFewerScopes(new URL(first).searchParams.get("state"));
+  assert.ok(!scopesOf(noFolders).includes("folder:write"));
+  assert.ok(scopesOf(noFolders).includes("brandtemplate:meta:read"));
+
+  const second = retryWithFewerScopes(new URL(noFolders).searchParams.get("state"));
   assert.ok(!scopesOf(second).includes("brandtemplate:meta:read"));
   assert.ok(scopesOf(second).includes("brandtemplate:content:read"));
 
@@ -165,4 +170,33 @@ test("swatch PNGs are valid solid colors and gradients", async () => {
   const stride = 4 * 3 + 1;
   assert.deepEqual([...raw.subarray(1, 4)], [255, 0, 0]); // top row
   assert.deepEqual([...raw.subarray(2 * stride + 1, 2 * stride + 4)], [0, 0, 255]); // bottom row
+});
+
+test("autofill files new designs into a state folder, creating it if missing", async () => {
+  reset({ accessToken: "tok", refreshToken: "ref", expiresAt: Date.now() + 3600e3, scope: "brandtemplate:content:read folder:read folder:write" });
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const u = new URL(url);
+    calls.push(`${init.method} ${u.pathname}`);
+    const json = (b) => new Response(JSON.stringify(b), { status: 200 });
+    if (u.pathname === "/rest/v1/autofills") return json({ job: { status: "success", result: { design: { id: `D${calls.length}`, title: "t" } } } });
+    if (u.pathname === "/rest/v1/folders/root/items") return json({ items: [{ type: "folder", folder: { id: "Fother", name: "MTG - Arizona" } }] });
+    if (u.pathname === "/rest/v1/folders") return json({ folder: { id: "Fsc", name: "MTG - South Carolina" } });
+    if (u.pathname === "/rest/v1/folders/move") return new Response("{}", { status: 200 });
+    return new Response("{}", { status: 404 });
+  };
+  try {
+    const r = await runCanvaTool("canva_autofill", {
+      brand_template_id: "T",
+      folder: "MTG - South Carolina",
+      designs: [{ title: "30 - Greenville - SC", fields: { county: "GREENVILLE COUNTY" } }, { title: "31 - Greenville - SC", fields: { county: "GREENVILLE COUNTY" } }],
+    });
+    const out = JSON.parse(r.content);
+    assert.equal(out.folder.id, "Fsc");
+    assert.equal(out.folder.moved, 2);
+    assert.equal(calls.filter((c) => c === "POST /rest/v1/folders/move").length, 2);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

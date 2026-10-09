@@ -19,10 +19,14 @@ export const CORE_SCOPES = [
 // any scope not enabled on the app, so on `invalid_scope` Mimi retries with the
 // next set. Listing brand templates needs brandtemplate:meta:read; autofill
 // from a known template only needs brandtemplate:content:read.
+// Folders (organizing designs into projects) need folder:read + folder:write.
+const BRAND_SCOPES = ["brandtemplate:meta:read", "brandtemplate:content:read"];
+const FOLDER_SCOPES = ["folder:read", "folder:write"];
 const SCOPE_SETS = process.env.CANVA_SCOPES
   ? [process.env.CANVA_SCOPES.split(/[\s,]+/).filter(Boolean)]
   : [
-      [...CORE_SCOPES, "brandtemplate:meta:read", "brandtemplate:content:read"],
+      [...CORE_SCOPES, ...BRAND_SCOPES, ...FOLDER_SCOPES],
+      [...CORE_SCOPES, ...BRAND_SCOPES],
       [...CORE_SCOPES, "brandtemplate:content:read"],
       CORE_SCOPES,
     ];
