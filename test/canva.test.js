@@ -151,3 +151,18 @@ test("sign-in link encodes scope spaces as %20 like Canva expects", async () => 
   assert.ok(!rawScope.includes("+"), rawScope);
   assert.match(rawScope, /^design:meta:read%20design:content:read/);
 });
+
+test("swatch PNGs are valid solid colors and gradients", async () => {
+  const zlib = await import("node:zlib");
+  const { swatchPng, parseHex } = await import("../src/canva/swatch.js");
+  assert.deepEqual(parseHex("#0B3D91"), [11, 61, 145]);
+  assert.throws(() => parseHex("navy"), /hex color/);
+  const png = swatchPng("#ff0000", "#0000ff", { width: 4, height: 3 });
+  assert.equal(png.subarray(1, 4).toString(), "PNG");
+  const idatAt = png.indexOf("IDAT");
+  const len = png.readUInt32BE(idatAt - 4);
+  const raw = zlib.inflateSync(png.subarray(idatAt + 4, idatAt + 4 + len));
+  const stride = 4 * 3 + 1;
+  assert.deepEqual([...raw.subarray(1, 4)], [255, 0, 0]); // top row
+  assert.deepEqual([...raw.subarray(2 * stride + 1, 2 * stride + 4)], [0, 0, 255]); // bottom row
+});

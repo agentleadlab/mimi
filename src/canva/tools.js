@@ -1,5 +1,6 @@
 import { canva, CanvaApiError, waitForJob } from "./api.js";
 import { CanvaNotConnectedError, connection, hasScope } from "./auth.js";
+import { swatchPng } from "./swatch.js";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_AUTOFILL = 25;
@@ -23,7 +24,10 @@ async function uploadImage(imageUrl, name = "Mimi upload") {
   if (!res.ok) throw new Error(`Couldn't download the image (${res.status}). Discord links expire — re-share it.`);
   const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length > MAX_IMAGE_BYTES) throw new Error("That image is over 25 MB.");
+  return uploadBytes(bytes, name);
+}
 
+async function uploadBytes(bytes, name) {
   const { job } = await canva("POST", "/v1/asset-uploads", {
     body: bytes,
     headers: {
@@ -84,6 +88,9 @@ const handlers = {
         for (const [field, value] of Object.entries(row.fields ?? {})) {
           if (value && typeof value === "object" && value.image_url) {
             data[field] = { type: "image", asset_id: await uploadImage(value.image_url, field) };
+          } else if (value && typeof value === "object" && value.color) {
+            const png = swatchPng(value.color, value.gradient_to);
+            data[field] = { type: "image", asset_id: await uploadBytes(png, `${field} ${value.color}`) };
           } else {
             data[field] = { type: "text", text: String(value) };
           }
@@ -215,7 +222,8 @@ export const canvaTools = [
     name: "canva_autofill",
     description:
       `Bulk-create designs from a brand template, one design per entry in \`designs\` (max ${MAX_AUTOFILL} per call). ` +
-      "Each entry maps template field names to values: a string for text fields, or {\"image_url\": \"...\"} for image fields. " +
+      "Each entry maps template field names to values: a string for text fields, {\"image_url\": \"...\"} for image fields, " +
+      "or {\"color\": \"#HEX\", \"gradient_to\": \"#HEX\" (optional)} to fill an image field with a solid color or gradient — that's how to recolor a template, since autofill can't change element colors directly. " +
       "Returns each new design's edit link, or a per-row error.",
     input_schema: {
       type: "object",
@@ -231,11 +239,19 @@ export const canvaTools = [
               title: { type: "string", description: "Title for this design." },
               fields: {
                 type: "object",
-                description: "Field name -> text string, or {\"image_url\": \"https://...\"} for image fields.",
+                description: "Field name -> text string, {\"image_url\": \"https://...\"}, or {\"color\": \"#HEX\"} for image fields.",
                 additionalProperties: {
                   anyOf: [
                     { type: "string" },
                     { type: "object", properties: { image_url: imageUrlProp }, required: ["image_url"] },
+                    {
+                      type: "object",
+                      properties: {
+                        color: { type: "string", description: "Hex color, e.g. #0B3D91" },
+                        gradient_to: { type: "string", description: "Optional second hex for a top-to-bottom gradient" },
+                      },
+                      required: ["color"],
+                    },
                   ],
                 },
               },

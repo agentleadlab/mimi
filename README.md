@@ -89,7 +89,7 @@ If Claude's safety filters decline a request, it's automatically retried on Anth
 
 ### Brand kits
 
-Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. To add a brand, add a file and redeploy.
+Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. [`brands/county-template.md`](brands/county-template.md) is the county ad recipe: same Canva layout, new county name and colors (colors are filled into the template's image fields as generated swatches, since Canva autofill can't recolor elements). To add a brand or template recipe, add a file and redeploy.
 
 ### Image generation (Gemini)
 

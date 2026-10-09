@@ -23,7 +23,7 @@ const brandKits = fs.existsSync(brandsDir)
       .map((f) => fs.readFileSync(path.join(brandsDir, f), "utf8").trim())
   : [];
 const brandNotes = brandKits.length
-  ? `\n\n## Brand Kits\n\nThese are the brands and on-camera talent you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.\n\n${brandKits.join("\n\n---\n\n")}`
+  ? `\n\n## Brand Kits\n\nThese are the brands, on-camera talent and design templates you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads, template runs), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.\n\n${brandKits.join("\n\n---\n\n")}`
   : "";
 
 const canvaReady = () => canvaConfigured && isConnected();
