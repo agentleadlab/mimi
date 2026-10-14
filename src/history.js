@@ -1,9 +1,11 @@
+import { isTextAttachment } from "./attachments.js";
+
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 const MAX_IMAGES = 5;
 
 /**
  * Normalized shape for one Discord message, independent of discord.js:
- * { fromBot: boolean, author: string, text: string, imageUrls: string[] }
+ * { fromBot: boolean, author: string, text: string, imageUrls: string[], textFiles: {name,url,size}[] }
  */
 export function fromDiscordMessage(message, botId, botRoleId) {
   return {
@@ -13,6 +15,9 @@ export function fromDiscordMessage(message, botId, botRoleId) {
     imageUrls: [...message.attachments.values()]
       .filter((a) => IMAGE_TYPES.has(a.contentType?.split(";")[0]))
       .map((a) => a.url),
+    textFiles: [...message.attachments.values()]
+      .filter(isTextAttachment)
+      .map((a) => ({ name: a.name, url: a.url, size: a.size })),
   };
 }
 

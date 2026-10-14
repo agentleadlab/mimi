@@ -9,6 +9,8 @@ import { samplesConfigured } from "./samples/library.js";
 import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
 import { geminiConfigured } from "./gemini.js";
 import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
+import { learningToolNames, learningTools, runLearningTool } from "./learnings/tools.js";
+import { learningsPrompt } from "./learnings/store.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
@@ -53,6 +55,7 @@ function runtimeNotes(canvaOn, samplesOn, imagesOn) {
   - Then 1–5 sections, each starting with \`## Heading\` (short, e.g. "The idea", "Copy options", "What to test", "Next steps"), followed by bullets or short lines.
   - Use **bold** for key words. No tables, no \`###\` subheadings, no horizontal rules. Each section stays under ~900 characters.
   - Keep the whole reply tight — the card is the deliverable, not an essay.
+- Files teammates attach (CSV/TXT exports) appear inline as "[attached file: name]" followed by their contents.
 - Image attachments in the latest message are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
 ${
   imagesOn
@@ -81,6 +84,14 @@ You're connected to the team's Canva account through the canva_* tools. What the
 - Always share the edit links you get back. Don't invent links or IDs.`
     : `- Canva isn't connected right now. For design production requests, give the full creative direction and spec (layout, copy, sizes, template fields) so the team can build it, and mention an admin can connect Canva with /canva connect.`
 }
+
+## Learning From Ad Results
+
+Teammates share Meta Ads results (pasted rows, an Ads Manager CSV export, or screenshots) so you learn which hooks win on their accounts.
+1. Read the results. Map each ad to its actual hook text: from a hook column, the ad name, the playbooks (e.g. "TRK-A3-V1-H2" = Trucker angle 3, Stack V1, hook 2), or by asking. Never save an ad name in place of hook text. If you can't map it, ask.
+2. Judge fairly. Use the team's KPI if they name one; otherwise lowest cost per lead (CPL), then CTR / hook rate. Only call something a winner or loser if it had real delivery: roughly $50+ spend or 1,000+ impressions, or the teammate says so. Winners clearly beat the batch (about 20%+ better CPL than the median). Losers clearly lag with similar spend. Everything else is "not enough signal" and isn't saved.
+3. Reply with a short scorecard: winners (hook, key numbers, the pattern behind the win), losers, and what to test next. Then ask "Save these?". Call save_ad_learnings only after they confirm, or right away if they already said to save.
+4. Saved learnings appear below under "Proven On Our Accounts". Use them whenever you write copy for that vertical. list_ad_learnings and remove_ad_learning manage them (e.g. "what's been winning for truckers?", "remove that last one").
 ${
   samplesOn
     ? `
@@ -98,7 +109,12 @@ Never reveal or guess Loom links — only share the preview links the tool retur
 }
 
 function systemPrompt(canvaOn, samplesOn, imagesOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + knowledge, cache_control: { type: "ephemeral" } }];
+  const learned = learningsPrompt();
+  return [
+    { type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + knowledge, cache_control: { type: "ephemeral" } },
+    // Changes as the team saves results, so it sits after the cached block.
+    ...(learned ? [{ type: "text", text: learned }] : []),
+  ];
 }
 
 const client = new Anthropic();
@@ -118,6 +134,7 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
   const tools = [
+    ...learningTools,
     ...(samplesOn ? sampleTools : []),
     ...(imagesOn ? imageTools : []),
     ...(canvaOn ? canvaTools : []),
@@ -147,7 +164,9 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
       const calls = response.content.filter((b) => b.type === "tool_use");
       const results = await Promise.all(
         calls.map(async (call) => {
-          const { content, isError } = sampleToolNames.has(call.name)
+          const { content, isError } = learningToolNames.has(call.name)
+            ? await runLearningTool(call.name, call.input, { requester })
+            : sampleToolNames.has(call.name)
             ? await runSampleTool(call.name, call.input, { requester })
             : imageToolNames.has(call.name)
               ? await runImageTool(call.name, call.input, { requester, files })
