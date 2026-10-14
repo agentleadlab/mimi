@@ -13,18 +13,32 @@ import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
 
-// Brand kits (brands/*.md): people and brands whose style Mimi should know by heart.
-const brandsDir = path.join(here, "..", "brands");
-const brandKits = fs.existsSync(brandsDir)
-  ? fs
-      .readdirSync(brandsDir)
-      .filter((f) => f.endsWith(".md"))
-      .sort()
-      .map((f) => fs.readFileSync(path.join(brandsDir, f), "utf8").trim())
-  : [];
-const brandNotes = brandKits.length
-  ? `\n\n## Brand Kits\n\nThese are the brands, on-camera talent and design templates you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads, template runs), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.\n\n${brandKits.join("\n\n---\n\n")}`
-  : "";
+/** Read every Markdown file in a folder next to src/, sorted by name. */
+function readFolder(name) {
+  const dir = path.join(here, "..", name);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => fs.readFileSync(path.join(dir, f), "utf8").trim());
+}
+
+const section = (title, intro, docs) => (docs.length ? `\n\n## ${title}\n\n${intro}\n\n${docs.join("\n\n---\n\n")}` : "");
+
+// Brand kits (brands/*.md): people, brands and templates whose style Mimi knows by heart.
+// Playbooks (playbooks/*.md): the team's copywriting frameworks for specific verticals.
+const knowledge =
+  section(
+    "Brand Kits",
+    'These are the brands, on-camera talent and design templates you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads, template runs), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.',
+    readFolder("brands"),
+  ) +
+  section(
+    "Playbooks",
+    "These are the team's proven copy frameworks. When a request falls in a playbook's vertical, its rules override your general copy habits (format, banned words, CTA style). Treat the reference hooks as the quality bar: write new ones in that voice and don't just recycle them unless asked. Headings inside are reference structure, not reply formatting.",
+    readFolder("playbooks"),
+  );
 
 const canvaReady = () => canvaConfigured && isConnected();
 
@@ -84,7 +98,7 @@ Never reveal or guess Loom links — only share the preview links the tool retur
 }
 
 function systemPrompt(canvaOn, samplesOn, imagesOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + brandNotes, cache_control: { type: "ephemeral" } }];
+  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + knowledge, cache_control: { type: "ephemeral" } }];
 }
 
 const client = new Anthropic();

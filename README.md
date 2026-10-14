@@ -91,6 +91,10 @@ If Claude's safety filters decline a request, it's automatically retried on Anth
 
 Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at startup, so she knows those brands and on-camera talent by heart: voice, script formula, look, edit style and approved claims. [`brands/tre-tarpley.md`](brands/tre-tarpley.md) covers Tre's talking-head ads. [`brands/county-template.md`](brands/county-template.md) is the MTG county ad recipe: per state, 4 counties × 3 versions with AI-generated backgrounds, titled "NN - County - ST" and filed into a "MTG - <State>" Canva folder. To add a brand or template recipe, add a file and redeploy.
 
+### Playbooks
+
+Every Markdown file in [`playbooks/`](playbooks/) is loaded too: the team's copy frameworks for specific verticals. [`playbooks/trucker-vertical.md`](playbooks/trucker-vertical.md) holds the 21 trucker/CDL angles, copy rules, 4x3 stack structure and reference hooks and post-hooks. Ask for *"trucker angle 13, full set"* and Mimi writes the emotional doorway, two stacks of 4 hooks, both post-hooks and ad headlines. To add a vertical, add a file and redeploy.
+
 ### Image generation (Gemini)
 
 Claude stays Mimi's brain; Gemini draws. With `GEMINI_API_KEY` set (create one at <https://aistudio.google.com/apikey>), Mimi gets a `generate_image` tool. Ask in chat (*"Mimi, make a 4:5 ad image of a veteran with his family on the porch at sunset, space for a headline"*) or use `/image`. She writes the art-direction prompt, picks the size for the placement, and the image shows up in her card (up to 4 per reply). Reply with a tweak (*"warmer light, no dog"*) and she edits her last image. Attach an image to use it as a reference.
