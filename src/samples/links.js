@@ -7,7 +7,6 @@ const KEY = "previewLinks";
 // Forget links this long after they were created (keeps the log and file small).
 const KEEP_MS = 60 * 24 * 60 * 60 * 1000;
 
-const minutes = (n) => n * 60 * 1000;
 const days = (n) => n * 24 * 60 * 60 * 1000;
 
 function load() {
@@ -57,13 +56,13 @@ export function createPreviewLink(sample, { requestedBy, client } = {}) {
 /**
  * Status of a link at `now`:
  * - unopened: valid until createdAt + unopened TTL (days)
- * - open: first opened, valid until firstOpenedAt + preview window (minutes)
+ * - open: first opened, valid until firstOpenedAt + preview window
  * - expired
  */
 export function linkStatus(link, now = Date.now()) {
   if (!link) return { state: "missing" };
   if (link.firstOpenedAt) {
-    const endsAt = link.firstOpenedAt + minutes(config.previewMinutes);
+    const endsAt = link.firstOpenedAt + config.previewSeconds * 1000;
     return now < endsAt ? { state: "open", endsAt } : { state: "expired", reason: "viewed", endsAt };
   }
   const endsAt = link.createdAt + days(config.unopenedLinkDays);

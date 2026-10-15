@@ -1,5 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { config } from "../config.js";
+import { config, previewLength } from "../config.js";
 import { addToCache, getSamples, loomVideoId, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
 import { callSheetScript, sheetLogConfigured } from "./sheetLog.js";
 import { card, COLORS, noticeCard } from "../ui.js";
@@ -33,7 +33,7 @@ export function linksMessage(samples, { requestedBy, client }) {
           {
             name: "⏱️ How the links work",
             value:
-              `• **${config.previewMinutes} min** of viewing once the client presses ▶ Watch\n` +
+              `• **${previewLength()}** of viewing once the client presses ▶ Watch\n` +
               `• Unopened links expire in **${config.unopenedLinkDays} days**\n` +
               "• Safe to paste in texts and emails — previews don't start the timer",
           },

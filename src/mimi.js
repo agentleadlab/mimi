@@ -107,7 +107,7 @@ The team keeps recorded ad samples (one per campaign, grouped by lead type) for 
 1. Call list_ad_samples to see what exists, and match their wording to lead types and sample names ("vet" = Veterans, "MP"/"mortgage" = Mortgage Protection, "FE" = Final Expense).
 2. If several samples fit and they didn't say which, give them all for that lead type. If nothing fits, say so and list the lead types that exist.
 3. Call create_sample_preview_links, passing the client's name if they mentioned one, and share each link with the sample name.
-4. Mention each link gives the client the stated minutes once they press Watch. Keep it short.
+4. Mention each link gives the client the stated viewing time once they press Watch. Keep it short.
 Never reveal or guess Loom links — only share the preview links the tool returns. Teammates can also use /sample for a private reply.`
     : ""
 }

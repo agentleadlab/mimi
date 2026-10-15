@@ -51,7 +51,7 @@ test("search matches lead type exactly first, then names/tags", () => {
   assert.equal(lib.searchSamples(samples, "nothing-here").length, 0);
 });
 
-test("preview link: unopened for days, then 15 minutes from first open", () => {
+test("preview link: unopened for days, then 2 min 30 sec from first open", () => {
   const [sample] = lib.rowsToSamples(lib.parseCsv(CSV));
   const { token, url } = links.createPreviewLink(sample, { requestedBy: "Kath", client: "John" });
   assert.match(url, /^https:\/\/mimi\.example\/p\/[A-Za-z0-9_-]+$/);
@@ -59,11 +59,11 @@ test("preview link: unopened for days, then 15 minutes from first open", () => {
   const t0 = Date.now();
   const first = links.visitLink(token, t0 + 60_000);
   assert.equal(first.status.state, "open");
-  assert.equal(first.status.endsAt, t0 + 60_000 + 15 * 60_000);
+  assert.equal(first.status.endsAt, t0 + 60_000 + 150_000);
 
   // Reopening inside the window doesn't extend it.
-  assert.equal(links.visitLink(token, t0 + 10 * 60_000).status.endsAt, first.status.endsAt);
-  assert.equal(links.visitLink(token, t0 + 17 * 60_000).status.state, "expired");
+  assert.equal(links.visitLink(token, t0 + 2 * 60_000).status.endsAt, first.status.endsAt);
+  assert.equal(links.visitLink(token, t0 + 4 * 60_000).status.state, "expired");
 
   const log = links.recentLinks(1)[0];
   assert.equal(log.client, "John");

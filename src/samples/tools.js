@@ -1,6 +1,6 @@
 import { getSamples, samplesConfigured, verticalsOf } from "./library.js";
 import { createPreviewLink } from "./links.js";
-import { config } from "../config.js";
+import { config, previewLength } from "../config.js";
 
 export const sampleTools = [
   {
@@ -12,7 +12,7 @@ export const sampleTools = [
   {
     name: "create_sample_preview_links",
     description:
-      `Create time-limited preview links for ad samples, for the requester to send to a client. Each link works for ${config.previewMinutes} minutes after it's first opened. ` +
+      `Create time-limited preview links for ad samples, for the requester to send to a client. Each link gives the client ${previewLength()} of viewing after they press Watch. ` +
       "Pass exact sample names from list_ad_samples. Only call this when someone actually asks for sample links.",
     input_schema: {
       type: "object",
@@ -56,7 +56,7 @@ export async function runSampleTool(name, input, context = {}) {
         content: JSON.stringify({
           links,
           missing,
-          note: `Links work for ${config.previewMinutes} min after first open; unopened links expire in ${config.unopenedLinkDays} days. The timer starts when the viewer presses Watch on the page, so pasting the link into texts/emails is safe.`,
+          note: `Links give ${previewLength()} of viewing after the client presses Watch; unopened links expire in ${config.unopenedLinkDays} days. The timer starts when the viewer presses Watch on the page, so pasting the link into texts/emails is safe.`,
         }),
         isError: links.length === 0,
       };

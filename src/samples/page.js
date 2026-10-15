@@ -1,4 +1,4 @@
-import { config } from "../config.js";
+import { config, previewLength } from "../config.js";
 import { peekLink, visitLink } from "./links.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -143,7 +143,7 @@ function startPage(link) {
     card(`<h1>${esc(s.name)}</h1>
 ${sampleTags(s)}
 ${preparedFor(link)}
-<div class="info"><span>${config.previewMinutes}-minute private preview</span><span>Timer starts when you press Watch</span></div>
+<div class="info"><span>${previewLength()} private preview</span><span>Timer starts when you press Watch</span></div>
 <form method="post"><button class="btn" type="submit">▶&nbsp; Watch sample</button></form>
 <p class="fine">This link is just for you and expires after your preview.</p>`),
   );
@@ -180,7 +180,7 @@ ${preparedFor(link)}
     if (left <= 0) { clearInterval(t); lock(); return; }
     var m = Math.floor(left / 60), s = left % 60;
     el.textContent = m + ":" + (s < 10 ? "0" : "") + s;
-    if (left <= 120) timer.classList.add("low");
+    if (left <= 30) timer.classList.add("low");
     left--;
   }
   var t = setInterval(tick, 1000);

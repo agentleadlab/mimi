@@ -40,8 +40,8 @@ export const config = {
 
   // Ad sample library: a Google Sheet shared as "Anyone with the link can view".
   samplesSheetUrl: process.env.SAMPLES_SHEET_URL,
-  // Clients get this many minutes from first opening a preview link.
-  previewMinutes: Number(process.env.PREVIEW_MINUTES) || 15,
+  // Clients get this long (seconds) from pressing Watch on a preview link.
+  previewSeconds: Number(process.env.PREVIEW_SECONDS) || 150,
   // Links that are never opened stop working after this many days.
   unopenedLinkDays: Number(process.env.PREVIEW_LINK_DAYS) || 7,
   // Optional "Sample Log" tab: Apps Script web app URL + shared secret (scripts/sample-log.gs).
@@ -82,4 +82,11 @@ export function missingRequired() {
     missing.push("ANTHROPIC_API_KEY");
   }
   return missing;
+}
+
+/** The preview window in words, e.g. "2 min 30 sec". */
+export function previewLength() {
+  const m = Math.floor(config.previewSeconds / 60);
+  const sec = config.previewSeconds % 60;
+  return [m && `${m} min`, sec && `${sec} sec`].filter(Boolean).join(" ") || "0 sec";
 }
