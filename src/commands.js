@@ -101,6 +101,24 @@ export const commands = [
         .filter(Boolean)
         .join("\n"),
   },
+  {
+    data: new SlashCommandBuilder()
+      .setName("refresh")
+      .setDescription("Refresh a tired hook: same idea, new opening, detail and emotion")
+      .addStringOption((o) => o.setName("hook").setDescription("The hook that's been running").setRequired(true).setMaxLength(1500))
+      .addStringOption((o) => o.setName("vertical").setDescription("e.g. Trucker angle 3, Mortgage Protection, Final Expense"))
+      .addStringOption((o) => o.setName("notes").setDescription("How it's tiring (CTR down, CPL up) or anything to avoid"))
+      .addIntegerOption((o) => o.setName("versions").setDescription("How many versions (default 5)").setMinValue(2).setMaxValue(10)),
+    brief: (o) =>
+      [
+        `Refresh this ad hook (use the Ad Refresh playbook): "${o.getString("hook")}"`,
+        o.getString("vertical") && `Vertical / angle: ${o.getString("vertical")}`,
+        o.getString("notes") && `Notes: ${o.getString("notes")}`,
+        `Versions: ${o.getInteger("versions") ?? 5}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+  },
   sampleCommand,
   samplesCommand,
   canvaCommand,

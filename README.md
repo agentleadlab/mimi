@@ -21,6 +21,7 @@ Slash commands:
 | `/review design [context]` | Structured feedback on an uploaded design |
 | `/plan timeframe [focus] [channels]` | Content calendar |
 | `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
+| `/refresh hook [vertical] [notes] [versions]` | Refresh a tired hook: same idea, new opening, detail and emotion |
 | `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
@@ -93,7 +94,7 @@ Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at star
 
 ### Playbooks
 
-Every Markdown file in [`playbooks/`](playbooks/) is loaded too: the team's copy frameworks for specific verticals. [`playbooks/trucker-vertical.md`](playbooks/trucker-vertical.md) holds the 21 trucker/CDL angles, copy rules, 4x3 stack structure and reference hooks and post-hooks. Ask for *"trucker angle 13, full set"* and Mimi writes the emotional doorway, two stacks of 4 hooks, both post-hooks and ad headlines. To add a vertical, add a file and redeploy.
+Every Markdown file in [`playbooks/`](playbooks/) is loaded too: the team's copy frameworks for specific verticals. [`playbooks/trucker-vertical.md`](playbooks/trucker-vertical.md) holds the 21 trucker/CDL angles, copy rules, 4x3 stack structure and reference hooks and post-hooks. Ask for *"trucker angle 13, full set"* and Mimi writes the emotional doorway, two stacks of 4 hooks, both post-hooks and ad headlines. [`playbooks/ad-refresh.md`](playbooks/ad-refresh.md) is the method for refreshing tired hooks (`/refresh`, or paste a hook and ask). To add a vertical, add a file and redeploy.
 
 ### Image generation (Gemini)
 
