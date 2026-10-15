@@ -21,8 +21,6 @@ Slash commands:
 | `/review design [context]` | Structured feedback on an uploaded design |
 | `/plan timeframe [focus] [channels]` | Content calendar |
 | `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
-| `/results file [context] [save]` | Mimi reads Meta ad results (CSV export or screenshot) and scores which hooks won |
-| `/winners list \| remove` | See the winning/losing hooks she's learned; remove one (Manage Server) |
 | `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
@@ -96,12 +94,6 @@ Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at star
 ### Playbooks
 
 Every Markdown file in [`playbooks/`](playbooks/) is loaded too: the team's copy frameworks for specific verticals. [`playbooks/trucker-vertical.md`](playbooks/trucker-vertical.md) holds the 21 trucker/CDL angles, copy rules, 4x3 stack structure and reference hooks and post-hooks. Ask for *"trucker angle 13, full set"* and Mimi writes the emotional doorway, two stacks of 4 hooks, both post-hooks and ad headlines. To add a vertical, add a file and redeploy.
-
-### Learning from ad results
-
-Share Meta results with Mimi (an Ads Manager **CSV export**, pasted rows, or screenshots) via `/results` or in chat: *"Mimi, here are last week's trucker results, which hooks won?"* She maps each ad to its hook text, judges on cost per lead (or the KPI you name) with a minimum-spend bar, posts a scorecard, and asks before saving. Saved winners and losers live on the data volume (`/data`) and are added to her prompt under "Proven On Our Accounts", so new hooks build on what actually converted. `/winners list` shows them; `/winners remove` prunes one.
-
-Name ads so hooks can be traced (e.g. `TRK-A3-V1-H2` = Trucker angle 3, Stack V1, hook 2), or include a column with the hook text.
 
 ### Image generation (Gemini)
 

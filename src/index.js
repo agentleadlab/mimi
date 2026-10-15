@@ -2,7 +2,6 @@ import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials 
 import { canvaConfigured, config, missingCanvaVars, missingRequired } from "./config.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
-import { isTextAttachment, readTextFiles } from "./attachments.js";
 import { COLORS, noticeCard, replyMessages, setIdentity } from "./ui.js";
 import { commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
@@ -99,11 +98,6 @@ client.on(Events.MessageCreate, async (message) => {
       .reverse()
       .concat(message)
       .map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
-    // Read attached CSV/text files from the latest message inline.
-    const latest = entries[entries.length - 1];
-    if (latest.textFiles.length) {
-      latest.text = [latest.text, await readTextFiles(latest.textFiles)].filter(Boolean).join("\n\n");
-    }
 
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
     const files = [];
@@ -164,19 +158,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     throw err;
   }
   try {
-    const attachment =
-      interaction.options.getAttachment("image") ??
-      interaction.options.getAttachment("design") ??
-      interaction.options.getAttachment("file");
-    let text = command.brief(interaction.options);
-    if (attachment && isTextAttachment(attachment)) {
-      text += `\n\n${await readTextFiles([{ name: attachment.name, url: attachment.url, size: attachment.size }])}`;
-    }
+    const attachment = interaction.options.getAttachment("image") ?? interaction.options.getAttachment("design");
     const messages = buildClaudeMessages([
       {
         fromBot: false,
         author: interaction.member?.displayName ?? interaction.user.globalName ?? interaction.user.username,
-        text,
+        text: command.brief(interaction.options),
         imageUrls: attachment?.contentType?.startsWith("image/") ? [attachment.url] : [],
       },
     ]);

@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { canvaCommand } from "./canva/command.js";
 import { sampleCommand, samplesCommand } from "./samples/command.js";
-import { winnersCommand } from "./learnings/command.js";
 
 /**
  * Slash commands for Mimi's core request types. Each one turns its options
@@ -102,23 +101,6 @@ export const commands = [
         .filter(Boolean)
         .join("\n"),
   },
-  {
-    data: new SlashCommandBuilder()
-      .setName("results")
-      .setDescription("Have Mimi read Meta ad results and learn which hooks won")
-      .addAttachmentOption((o) => o.setName("file").setDescription("Ads Manager CSV export (or a screenshot)").setRequired(true))
-      .addStringOption((o) => o.setName("context").setDescription("Vertical/angle, date range, KPI, etc."))
-      .addBooleanOption((o) => o.setName("save").setDescription("Save the winners right away (default: show me first)")),
-    brief: (o) =>
-      [
-        "Here are our Meta ad results. Analyze which hooks won and which lost.",
-        o.getString("context") && `Context: ${o.getString("context")}`,
-        o.getBoolean("save") ? "Save the winners and clear losers right away." : "Show me the scorecard first, then ask before saving.",
-      ]
-        .filter(Boolean)
-        .join("\n"),
-  },
-  winnersCommand,
   sampleCommand,
   samplesCommand,
   canvaCommand,
