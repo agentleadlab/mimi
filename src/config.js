@@ -54,6 +54,12 @@ export const config = {
   geminiImageModel: process.env.GEMINI_IMAGE_MODEL || "gemini-nano-banana-2.1",
   // Used through the older generateContent API if the Interactions API isn't available.
   geminiLegacyImageModel: process.env.GEMINI_LEGACY_IMAGE_MODEL || "gemini-2.5-flash-image",
+  // Meta Ads reporting (read-only): a system user token with ads_read, and the ad account(s).
+  metaAccessToken: process.env.META_ACCESS_TOKEN,
+  metaAdAccountIds: list(process.env.META_AD_ACCOUNT_IDS).map((id) => (id.startsWith("act_") ? id : `act_${id}`)),
+  metaApiVersion: process.env.META_API_VERSION || "v23.0",
+  // Which Meta action counts as a lead. Default: the first of the common lead actions that has data.
+  metaLeadActions: list(process.env.META_LEAD_ACTION),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

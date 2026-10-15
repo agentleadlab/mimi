@@ -119,6 +119,40 @@ export const commands = [
         .filter(Boolean)
         .join("\n"),
   },
+  {
+    data: new SlashCommandBuilder()
+      .setName("cpl")
+      .setDescription("Live Meta numbers: spend, leads and CPL for a campaign, ad set or ad")
+      .addStringOption((o) => o.setName("name").setDescription("Campaign / ad set / ad name contains… (blank = everything)"))
+      .addStringOption((o) =>
+        o.setName("level").setDescription("Break down by (default campaign)").addChoices(
+          { name: "Campaign", value: "campaign" },
+          { name: "Ad set", value: "adset" },
+          { name: "Ad", value: "ad" },
+          { name: "Whole account", value: "account" },
+        ),
+      )
+      .addStringOption((o) =>
+        o.setName("range").setDescription("Date range (default today + 7d + 30d)").addChoices(
+          { name: "Today + 7 days + 30 days", value: "today,last_7d,last_30d" },
+          { name: "Today", value: "today" },
+          { name: "Yesterday", value: "yesterday" },
+          { name: "Last 7 days", value: "last_7d" },
+          { name: "Last 30 days", value: "last_30d" },
+          { name: "This month", value: "this_month" },
+        ),
+      ),
+    brief: (o) =>
+      [
+        "Pull our live Meta numbers.",
+        o.getString("name") ? `Name contains: "${o.getString("name")}" (match it at the ${o.getString("level") ?? "campaign"} level unless it's clearly a campaign name)` : "All campaigns.",
+        `Level: ${o.getString("level") ?? "campaign"}`,
+        `Date presets: ${o.getString("range") ?? "today,last_7d,last_30d"}`,
+        o.getString("level") === "ad" ? "Show the top ads' copy and images too." : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+  },
   sampleCommand,
   samplesCommand,
   canvaCommand,

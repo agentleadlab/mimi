@@ -9,6 +9,8 @@ import { samplesConfigured } from "./samples/library.js";
 import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
 import { geminiConfigured } from "./gemini.js";
 import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
+import { metaConfigured } from "./meta/api.js";
+import { metaToolNames, metaTools, runMetaTool } from "./meta/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const persona = fs.readFileSync(path.join(here, "..", "prompts", "mimi.md"), "utf8");
@@ -42,7 +44,7 @@ const knowledge =
 
 const canvaReady = () => canvaConfigured && isConnected();
 
-function runtimeNotes(canvaOn, samplesOn, imagesOn) {
+function runtimeNotes(canvaOn, samplesOn, imagesOn, metaOn) {
   return `
 ## Runtime Notes (Discord)
 
@@ -82,6 +84,21 @@ You're connected to the team's Canva account through the canva_* tools. What the
     : `- Canva isn't connected right now. For design production requests, give the full creative direction and spec (layout, copy, sizes, template fields) so the team can build it, and mention an admin can connect Canva with /canva connect.`
 }
 ${
+  metaOn
+    ? `
+## Meta Ads Numbers
+
+You can pull live, read-only results from the team's Meta ad accounts with meta_ad_insights and meta_ad_details. Use them whenever someone asks about CPL, spend, leads, CTR, how a campaign/ad set/ad is doing, or "what's working".
+- Map the ask: "today / 7 days / 30 days" → date_presets [today, last_7d, last_30d] in ONE call. "this week" → last_7d unless they mean otherwise. A campaign/ad set name or nickname ("trucker", "MP Texas") → name_contains, with filter_on matching what they named. No level given → campaign. "Which ads" or "the ad" → level ad.
+- If a name filter returns nothing, try a shorter or different keyword once, then say what you searched and ask.
+- Reply format: title like "📊 Trucker — CPL check". Intro: the headline numbers (spend, leads, CPL for each range asked). Then one section per range, or per level, with the top rows as bullets: "**Name** — $412 spend · 31 leads · **$13.29 CPL** · 2.1% CTR". Show at most ~8 rows per section, and say how many more there are. Use the account's currency. Show CPL as "no leads yet" when leads are 0.
+- When they ask about specific ads, or the best/worst ad, call meta_ad_details for up to 3 ads so they see the copy, headline and image (the images attach automatically). Quote the primary text's first line and the headline, and give the preview link.
+- Add a short "Read" section with 1–3 plain observations (e.g. CPL trending up from 30d to 7d, one ad set eating spend with no leads, frequency over 3). Don't invent causes; flag them as things to check.
+- Data notes when relevant: today is partial, Meta can lag a few hours, and dates use the ad account's timezone. These numbers are internal: never put them in client-facing copy.
+- You can only read numbers. You can't pause, edit or create ads. If asked, say so and give the steps to do it in Ads Manager.`
+    : ""
+}
+${
   samplesOn
     ? `
 ## Ad Sample Library
@@ -97,8 +114,8 @@ Never reveal or guess Loom links — only share the preview links the tool retur
 `;
 }
 
-function systemPrompt(canvaOn, samplesOn, imagesOn) {
-  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn) + knowledge, cache_control: { type: "ephemeral" } }];
+function systemPrompt(canvaOn, samplesOn, imagesOn, metaOn) {
+  return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn, metaOn) + knowledge, cache_control: { type: "ephemeral" } }];
 }
 
 const client = new Anthropic();
@@ -117,7 +134,9 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
+  const metaOn = metaConfigured();
   const tools = [
+    ...(metaOn ? metaTools : []),
     ...(samplesOn ? sampleTools : []),
     ...(imagesOn ? imageTools : []),
     ...(canvaOn ? canvaTools : []),
@@ -128,7 +147,7 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
     const response = await client.beta.messages.create({
       model: config.model,
       max_tokens: config.maxTokens,
-      system: systemPrompt(canvaOn, samplesOn, imagesOn),
+      system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn),
       messages: convo,
       thinking: { type: "adaptive" },
       output_config: { effort: config.effort },
@@ -147,7 +166,9 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
       const calls = response.content.filter((b) => b.type === "tool_use");
       const results = await Promise.all(
         calls.map(async (call) => {
-          const { content, isError } = sampleToolNames.has(call.name)
+          const { content, isError } = metaToolNames.has(call.name)
+            ? await runMetaTool(call.name, call.input, { files })
+            : sampleToolNames.has(call.name)
             ? await runSampleTool(call.name, call.input, { requester })
             : imageToolNames.has(call.name)
               ? await runImageTool(call.name, call.input, { requester, files })

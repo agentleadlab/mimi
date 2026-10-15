@@ -22,6 +22,7 @@ Slash commands:
 | `/plan timeframe [focus] [channels]` | Content calendar |
 | `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
 | `/refresh hook [vertical] [notes] [versions]` | Refresh a tired hook: same idea, new opening, detail and emotion |
+| `/cpl [name] [level] [range]` | Live Meta numbers: spend, leads, CPL (needs `META_ACCESS_TOKEN`) |
 | `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
@@ -82,6 +83,8 @@ All settings live in `.env` (see `.env.example`):
 | `MIMI_HISTORY_LIMIT` | `20` | How many earlier channel messages she reads |
 | `GEMINI_API_KEY` | (unset) | Turns on image generation (see below) |
 | `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
+| `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
+| `META_LEAD_ACTION` | auto | Which Meta action counts as a lead (e.g. `lead`, `offsite_conversion.fb_pixel_lead`) |
 | `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` | (unset) | Canva integration credentials (see below) |
 | `PUBLIC_URL` | Railway's generated domain | Public https URL of the deployment, for Canva sign-in |
 | `MIMI_DATA_DIR` | `/data` if it exists, else `./data` | Where the Canva login is stored |
@@ -95,6 +98,18 @@ Every Markdown file in [`brands/`](brands/) is loaded into Mimi's memory at star
 ### Playbooks
 
 Every Markdown file in [`playbooks/`](playbooks/) is loaded too: the team's copy frameworks for specific verticals. [`playbooks/trucker-vertical.md`](playbooks/trucker-vertical.md) holds the 21 trucker/CDL angles, copy rules, 4x3 stack structure and reference hooks and post-hooks. Ask for *"trucker angle 13, full set"* and Mimi writes the emotional doorway, two stacks of 4 hooks, both post-hooks and ad headlines. [`playbooks/ad-refresh.md`](playbooks/ad-refresh.md) is the method for refreshing tired hooks (`/refresh`, or paste a hook and ask). To add a vertical, add a file and redeploy.
+
+### Meta Ads numbers
+
+Ask in chat (*"Mimi, what's the CPL on the trucker campaign today, 7 days and 30 days?"*, *"which ad in MP Texas is cheapest this week?"*) or use `/cpl`. Mimi pulls live, **read-only** numbers from the Marketing API (spend, leads, CPL, CTR, CPM, frequency) at campaign, ad set or ad level, and for specific ads shows the primary text, headline, preview link and image. She can't change anything in Ads Manager.
+
+Setup (once):
+1. In **Meta Business Settings → Users → System users**, add a system user (Employee role is enough).
+2. **Assign assets → Ad accounts**: pick your ad account(s) and grant **View performance**.
+3. **Generate new token** for that system user with your Meta app, ticking **ads_read** (expiry "Never" if offered). Copy it into `META_ACCESS_TOKEN`.
+4. Put the ad account ID(s) in `META_AD_ACCOUNT_IDS` (comma-separated, with or without `act_`; it's in Ads Manager's URL as `act=`).
+
+Leads are counted from Meta's `lead` action by default (falling back to on-Facebook or pixel leads). Set `META_LEAD_ACTION` if your account counts leads differently. Dates follow the ad account's timezone.
 
 ### Image generation (Gemini)
 
