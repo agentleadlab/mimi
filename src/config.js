@@ -60,6 +60,10 @@ export const config = {
   metaApiVersion: process.env.META_API_VERSION || "v23.0",
   // Which Meta action counts as a lead. Default: the first of the common lead actions that has data.
   metaLeadActions: list(process.env.META_LEAD_ACTION),
+  // Campaigns/ad sets/ads whose names contain these are left out of numbers (e.g. MARTIN is dropped from reports).
+  metaExcludeNames: list(process.env.META_EXCLUDE_NAMES ?? "MARTIN"),
+  // The account's target CPL band (cheaper leads close worse on this account).
+  cplBand: { low: Number(process.env.CPL_BAND_LOW) || 25, high: Number(process.env.CPL_BAND_HIGH) || 35, dead: Number(process.env.CPL_DEAD) || 45 },
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

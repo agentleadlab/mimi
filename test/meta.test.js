@@ -36,6 +36,7 @@ test("pulls CPL for several ranges with a name filter, following pages", async (
         data: [
           { campaign_name: "Trucker - Spouse", spend: "412.5", impressions: "20000", inline_link_clicks: "400", inline_link_click_ctr: "2", actions: leads(31) },
           { campaign_name: "Trucker - Retired", spend: "200", impressions: "10000", inline_link_clicks: "100", actions: leads(25) },
+          { campaign_name: "MARTIN - Trucker", spend: "999", impressions: "1", inline_link_clicks: "1", actions: leads(1) },
         ],
         paging: { next: `${u.origin}${u.pathname}?after=x` },
       };
@@ -51,7 +52,10 @@ test("pulls CPL for several ranges with a name filter, following pages", async (
   assert.equal(today.totals.cpl, null);
   assert.equal(week.account, "ALL Main");
   assert.equal(week.lead_action, "lead");
-  assert.deepEqual(week.totals, { spend: 712.5, leads: 56, cpl: 12.72, ctr_pct: 1.57 });
+  assert.equal(week.totals.cpl, 12.72);
+  assert.equal(week.totals.cpl_band, "below band (<$25): warning");
+  assert.equal(week.totals.click_to_lead_pct, 10.2);
+  assert.equal(week.excluded_rows, 1);
   assert.deepEqual(week.rows.map((x) => [x.campaign, x.cpl]), [["Trucker - Retired", 8], ["Trucker - Spouse", 13.31], ["Trucker - CDL", null]]);
 });
 

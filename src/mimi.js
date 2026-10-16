@@ -32,6 +32,11 @@ const section = (title, intro, docs) => (docs.length ? `\n\n## ${title}\n\n${int
 // Playbooks (playbooks/*.md): the team's copywriting frameworks for specific verticals.
 const knowledge =
   section(
+    "Agent Lead Lab Knowledge Base",
+    "Read this before answering anything about this account. The operating rules come first, then the knowledge base itself. Both outrank the brand kits and playbooks below where they conflict. Its tables are reference data: reproduce numbers as lines and bullets, never as tables.",
+    readFolder("knowledge"),
+  ) +
+  section(
     "Brand Kits",
     'These are the brands, on-camera talent and design templates you know. When a request names one (scripts, edit briefs, captions, thumbnails, ads, template runs), follow its kit closely and say which kit you used. In the kits, "#" and "##" headings are reference structure, not reply formatting.',
     readFolder("brands"),
@@ -91,9 +96,11 @@ ${
 You can pull live, read-only results from the team's Meta ad accounts with meta_ad_insights and meta_ad_details. Use them whenever someone asks about CPL, spend, leads, CTR, how a campaign/ad set/ad is doing, or "what's working".
 - Map the ask: "today / 7 days / 30 days" → date_presets [today, last_7d, last_30d] in ONE call. "this week" → last_7d unless they mean otherwise. A campaign/ad set name or nickname ("trucker", "MP Texas") → name_contains, with filter_on matching what they named. No level given → campaign. "Which ads" or "the ad" → level ad.
 - If a name filter returns nothing, try a shorter or different keyword once, then say what you searched and ask.
-- Reply format: title like "📊 Trucker — CPL check". Intro: the headline numbers (spend, leads, CPL for each range asked). Then one section per range, or per level, with the top rows as bullets: "**Name** — $412 spend · 31 leads · **$13.29 CPL** · 2.1% CTR". Show at most ~8 rows per section, and say how many more there are. Use the account's currency. Show CPL as "no leads yet" when leads are 0.
+- Reply format: title like "📊 Trucker — CPL check". Intro: the headline numbers (spend, leads, CPL for each range asked). Then one section per range, or per level, with the top rows as bullets: "**Name** — $412 spend · 31 leads · **$13.29 CPL** (below band) · $1.71 CPC · 7.2% click-to-lead". Leave out MARTIN. Show at most ~8 rows per section, and say how many more there are. Use the account's currency. Show CPL as "no leads yet" when leads are 0.
 - When they ask about specific ads, or the best/worst ad, call meta_ad_details for up to 3 ads so they see the copy, headline and image (the images attach automatically). Quote the primary text's first line and the headline, and give the preview link.
-- Add a short "Read" section with 1–3 plain observations (e.g. CPL trending up from 30d to 7d, one ad set eating spend with no leads, frequency over 3). Don't invent causes; flag them as things to check.
+- Read the numbers the way the knowledge base says to: CPL is judged against the **$25–$35 band** (under $25 = warning, over $45 = dead weight), and click-to-lead rate (leads ÷ link clicks, account median 6.4%, under 4.5% = form/landing-page problem) is the best early signal. CTR and frequency are background only: never call them good or bad, and never suggest rotating or cutting on them.
+- Meta has no closes, so you can't give CAC or ROAS from it. Say "CAC needs the command center" where it matters, and quote the knowledge base's dated CAC if it covers that ad set (with its date).
+- Add a short "Read" section with 1–3 plain observations (e.g. CPL drifting out of the band from 30d to 7d, an ad set with normal CPC but a click-to-lead under 4.5%, spend with no leads on 12+ expected leads). Never recommend a cut on under 30 days: say "flag for review". Don't invent causes; flag them as things to check.
 - Data notes when relevant: today is partial, Meta can lag a few hours, and dates use the ad account's timezone. These numbers are internal: never put them in client-facing copy.
 - You can only read numbers. You can't pause, edit or create ads. If asked, say so and give the steps to do it in Ads Manager.`
     : ""

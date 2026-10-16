@@ -84,12 +84,22 @@ All settings live in `.env` (see `.env.example`):
 | `GEMINI_API_KEY` | (unset) | Turns on image generation (see below) |
 | `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
 | `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
+| `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |
+| `CPL_BAND_LOW` / `CPL_BAND_HIGH` / `CPL_DEAD` | `25` / `35` / `45` | Target CPL band used to label results |
 | `META_LEAD_ACTION` | auto | Which Meta action counts as a lead (e.g. `lead`, `offsite_conversion.fb_pixel_lead`) |
 | `CANVA_CLIENT_ID` / `CANVA_CLIENT_SECRET` | (unset) | Canva integration credentials (see below) |
 | `PUBLIC_URL` | Railway's generated domain | Public https URL of the deployment, for Canva sign-in |
 | `MIMI_DATA_DIR` | `/data` if it exists, else `./data` | Where the Canva login is stored |
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
+
+### Account knowledge base
+
+[`knowledge/`](knowledge/) is loaded ahead of everything else and outranks the brand kits and playbooks:
+- [`00-operating-rules.md`](knowledge/00-operating-rules.md): how Mimi weights the knowledge base, the hard rules (rank by CAC with CPL alongside, $25–$35 CPL band, no cuts on under 30 days, no VA/government affiliation, banned phrases) and response style.
+- [`agent-lead-lab-kb.md`](knowledge/agent-lead-lab-kb.md): Kath's Ads & Creative Knowledge Base (dated performance snapshot, creative learnings, corrections log, house style).
+
+To refresh it, replace `agent-lead-lab-kb.md` with the new version (keep the "Last updated" date at the top) and redeploy. Mimi always quotes numbers with their date.
 
 ### Brand kits
 

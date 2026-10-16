@@ -19,6 +19,21 @@ export function pickLeadAction(rows) {
   return prefs.find((t) => rows.some((r) => actionCount(r.actions, t) > 0)) ?? prefs[0];
 }
 
+/** Where a CPL sits against the account's target band. */
+export function cplBand(cpl) {
+  if (cpl === null) return "no leads";
+  const { low, high, dead } = config.cplBand;
+  if (cpl < low) return `below band (<$${low}): warning`;
+  if (cpl <= high) return "in band";
+  if (cpl <= dead) return `above band (>$${high})`;
+  return `dead weight (>$${dead})`;
+}
+
+const excluded = (row) =>
+  config.metaExcludeNames.some((term) =>
+    [row.campaign_name, row.adset_name, row.ad_name].some((n) => n?.toLowerCase().includes(term.toLowerCase())),
+  );
+
 export function summarizeRow(row, level, leadAction) {
   const spend = num(row.spend);
   const leads = actionCount(row.actions, leadAction);
@@ -32,8 +47,11 @@ export function summarizeRow(row, level, leadAction) {
     spend: round(spend),
     leads,
     cpl: leads ? round(spend / leads) : null,
+    cpl_band: cplBand(leads ? spend / leads : null),
     impressions: num(row.impressions),
     link_clicks: num(row.inline_link_clicks),
+    cpc: num(row.inline_link_clicks) ? round(spend / num(row.inline_link_clicks)) : null,
+    click_to_lead_pct: num(row.inline_link_clicks) ? round((leads / num(row.inline_link_clicks)) * 100, 1) : null,
     ctr_pct: round(num(row.inline_link_click_ctr)),
     cpm: round(num(row.cpm)),
     frequency: round(num(row.frequency)),
@@ -69,8 +87,9 @@ async function insightsFor(accountId, { level, range, nameContains, filterOn, so
     ...(filtering && { filtering }),
     limit: 500,
   });
-  const leadAction = pickLeadAction(raw);
-  const rows = raw.map((r) => summarizeRow(r, level, leadAction));
+  const kept = raw.filter((r) => !excluded(r));
+  const leadAction = pickLeadAction(kept);
+  const rows = kept.map((r) => summarizeRow(r, level, leadAction));
   const spend = rows.reduce((n, r) => n + r.spend, 0);
   const leads = rows.reduce((n, r) => n + r.leads, 0);
   const impressions = rows.reduce((n, r) => n + r.impressions, 0);
@@ -85,8 +104,13 @@ async function insightsFor(accountId, { level, range, nameContains, filterOn, so
       spend: round(spend),
       leads,
       cpl: leads ? round(spend / leads) : null,
+      cpl_band: cplBand(leads ? spend / leads : null),
+      cpc: clicks ? round(spend / clicks) : null,
+      click_to_lead_pct: clicks ? round((leads / clicks) * 100, 1) : null,
       ctr_pct: impressions ? round((clicks / impressions) * 100) : null,
     },
+    ...(raw.length > kept.length && { excluded_rows: raw.length - kept.length, excluded_terms: config.metaExcludeNames }),
+    note: "Meta has no closes: CAC/ROAS come from the command center. Never recommend cuts on under 30 days of data.",
     row_count: rows.length,
     rows: level === "account" ? undefined : sortRows(rows, sortBy).slice(0, limit),
   };

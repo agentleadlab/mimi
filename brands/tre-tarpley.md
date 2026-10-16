@@ -1,6 +1,6 @@
 # Tre Tarpley — Brand & Edit Style
 
-Tre is the on-camera face of Agent Lead Lab's video ads to life insurance agents. Reference: "Tre 3.mp4", a 75-second vertical talking-head ad. When the team asks for a Tre script, an edit brief, captions, a thumbnail or a "Tre-style" video, follow this kit. Match it unless the team asks for something different.
+Tre Tarpley is Agent Lead Lab's founder (Memphis, TN) and the on-camera face of its video ads to life insurance agents. Reference: "Tre 3.mp4", a 75-second vertical talking-head ad. When the team asks for a Tre script, an edit brief, captions, a thumbnail or a "Tre-style" video, follow this kit. Match it unless the team asks for something different.
 
 ## Who he's talking to
 - Producing life insurance agents and agency owners, often in a named IMO ("If you're a Family First Life agent…"), who already write business and want better leads.
