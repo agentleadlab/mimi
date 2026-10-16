@@ -101,7 +101,7 @@ client.on(Events.MessageCreate, async (message) => {
 
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
     const files = [];
-    const reply = await askMimi(buildClaudeMessages(entries), { requester, files });
+    const reply = await askMimi(buildClaudeMessages(entries), { requester, files, guild: message.guild });
     stopTyping();
 
     await send(message, replyMessages(reply, { requester, files }));
@@ -170,7 +170,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const requester = interaction.member?.displayName ?? interaction.user.username;
     const files = [];
-    const reply = await askMimi(messages, { requester, files });
+    const reply = await askMimi(messages, { requester, files, guild: interaction.guild });
     const [first, ...rest] = replyMessages(reply, { requester, files });
     await interaction.editReply(first);
     for (const p of rest) await interaction.followUp(p);

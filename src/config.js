@@ -64,6 +64,16 @@ export const config = {
   metaExcludeNames: list(process.env.META_EXCLUDE_NAMES ?? "MARTIN"),
   // The account's target CPL band (cheaper leads close worse on this account).
   cplBand: { low: Number(process.env.CPL_BAND_LOW) || 25, high: Number(process.env.CPL_BAND_HIGH) || 35, dead: Number(process.env.CPL_DEAD) || 45 },
+  // Team members Mimi can tag, as "Name=DiscordUserID" pairs (e.g. "Jen=123,K2=456,Tre=789").
+  // Names not listed here are looked up in the server by name.
+  teamMentions: Object.fromEntries(
+    list(process.env.TEAM_MENTIONS)
+      .map((pair) => pair.split("=").map((x) => x.trim()))
+      .filter(([name, id]) => name && /^\d{15,25}$/.test(id ?? ""))
+      .map(([name, id]) => [name.toLowerCase(), id]),
+  ),
+  // Where announcements like the marketing brief go (channel ID). Default: a channel named like "marketing".
+  marketingChannelId: process.env.MARKETING_CHANNEL_ID,
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

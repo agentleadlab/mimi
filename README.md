@@ -84,6 +84,8 @@ All settings live in `.env` (see `.env.example`):
 | `GEMINI_API_KEY` | (unset) | Turns on image generation (see below) |
 | `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
 | `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
+| `TEAM_MENTIONS` | (unset) | Teammates Mimi can tag, `Name=UserID` pairs (e.g. `Jen=123,K2=456,Tre=789`). Others are looked up by name |
+| `MARKETING_CHANNEL_ID` | (unset) | Where she posts announcements. Default: a channel named like "marketing" |
 | `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |
 | `CPL_BAND_LOW` / `CPL_BAND_HIGH` / `CPL_DEAD` | `25` / `35` / `45` | Target CPL band used to label results |
 | `META_LEAD_ACTION` | auto | Which Meta action counts as a lead (e.g. `lead`, `offsite_conversion.fb_pixel_lead`) |
@@ -95,7 +97,7 @@ If Claude's safety filters decline a request, it's automatically retried on Anth
 
 ### Weekly marketing report deck
 
-Post the data screenshots (command center, Ads Manager) in one or more messages, then ask: *"Mimi, build this week's marketing report."* She reads every screenshot, builds a PowerPoint in the house style (dark #0B0F0E background, #22C55E accent, bar charts drawn as shapes, CPL and CAC on every data slide, data date on every slide), and attaches it. Her reply is the Discord-paste summary plus a **"Numbers I read"** list to check her transcription. Reply with corrections and she rebuilds it. Screenshots from the last 2 hours (up to 20) are read together.
+Post the data screenshots (command center, Ads Manager) in one or more messages, then ask: *"Mimi, build this week's marketing report."* She reads every screenshot, builds a PowerPoint in the house style (dark #0B0F0E background, #22C55E accent, bar charts drawn as shapes, CPL and CAC on every data slide, data date on every slide), and attaches it. Her reply is the Discord-paste summary plus a **"Numbers I read"** list to check her transcription. Reply with corrections and she rebuilds it. To share it: *"Mimi, post this week's brief in marketing and tag Jen, K2 and Tre: <link>"*. She posts it in the marketing channel with real @-tags (people get notified) and a card linking to the deck. Screenshots from the last 2 hours (up to 20) are read together.
 
 ### Account knowledge base
 

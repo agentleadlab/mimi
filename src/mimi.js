@@ -11,6 +11,7 @@ import { geminiConfigured } from "./gemini.js";
 import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 import { metaConfigured } from "./meta/api.js";
 import { reportToolNames, reportTools, runReportTool } from "./reports/tools.js";
+import { discordToolNames, discordTools, runDiscordTool } from "./discord/tools.js";
 import { metaToolNames, metaTools, runMetaTool } from "./meta/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -80,7 +81,8 @@ You build the team's marketing report deck. Kath shares screenshots of the data 
 3. Every data slide shows **CPL and CAC together** (cpl_cac rows, or bars with cpl/cac per row), carries a \`source\` with the data date, and has a one-line takeaway as its subtitle. Rank rows by CAC. Leave out MARTIN, and exclude any vertical Kath excludes completely.
 4. 7-day data is for monitoring only. Say so on those slides, and never recommend cuts from it.
 5. Your Discord reply = the **Discord-paste block**: a plain-text summary of the report for the team (no tables, bold labels, short lines). Then a **"Numbers I read"** section listing the key figures per screenshot so Kath can verify the transcription, and any values you couldn't read. The deck attaches automatically.
-6. When Kath sends corrections ("CAC on V.8 is $168, not $186"), rebuild the deck with the fixes and say what changed.
+6. **Sharing the brief:** when Kath asks you to share or announce the brief (usually a Google Slides link), use post_to_channel. Post to the marketing channel, tag Jen, K2 and Tre (or whoever she names), and add a one-line message with the data window (e.g. "This week's Marketing Brief is up — data from the last 30 days."). Make the card title "Marketing Brief — <window>" linking to the deck. Add up to 4 highlights only if they come from the report you built or the data in this conversation. You can't open Google links, so never describe what's inside one you haven't seen. After posting, confirm in one line with the channel name.
+7. When Kath sends corrections ("CAC on V.8 is $168, not $186"), rebuild the deck with the fixes and say what changed.
 
 - Image attachments (from the latest message, plus screenshots from earlier messages in the last 2 hours) are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
 ${
@@ -159,12 +161,13 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [] } = {}) {
+export async function askMimi(messages, { requester, files = [], guild } = {}) {
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
   const metaOn = metaConfigured();
   const tools = [
+    ...(guild ? discordTools : []),
     ...reportTools,
     ...(metaOn ? metaTools : []),
     ...(samplesOn ? sampleTools : []),
@@ -196,7 +199,9 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
       const calls = response.content.filter((b) => b.type === "tool_use");
       const results = await Promise.all(
         calls.map(async (call) => {
-          const { content, isError } = reportToolNames.has(call.name)
+          const { content, isError } = discordToolNames.has(call.name)
+            ? await runDiscordTool(call.name, call.input, { requester, guild })
+            : reportToolNames.has(call.name)
             ? await runReportTool(call.name, call.input, { requester, files })
             : metaToolNames.has(call.name)
             ? await runMetaTool(call.name, call.input, { files })
