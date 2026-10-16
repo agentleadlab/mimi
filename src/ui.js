@@ -159,7 +159,14 @@ export function replyMessages(text, { requester, files = [] } = {}) {
     size += n;
   }
   if (batch.length) messages.push({ embeds: batch });
-  return files.length ? attachImages(messages, files) : messages;
+  const docs = files.filter((f) => f.kind === "document");
+  const images = files.filter((f) => f.kind !== "document");
+  if (images.length) attachImages(messages, images);
+  if (docs.length) {
+    // Files like decks go on the first message, as downloads.
+    messages[0].files = [...(messages[0].files ?? []), ...docs.map((f) => ({ attachment: f.buffer, name: f.name }))];
+  }
+  return messages;
 }
 
 /**

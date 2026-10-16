@@ -1,5 +1,9 @@
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 const MAX_IMAGES = 5;
+// Images from earlier messages in the last 2 hours are included too (up to
+// 20 total), so screenshots spread across several messages can be read together.
+const RECENT_MS = 2 * 60 * 60 * 1000;
+const MAX_TOTAL_IMAGES = 20;
 
 /**
  * Normalized shape for one Discord message, independent of discord.js:
@@ -8,6 +12,7 @@ const MAX_IMAGES = 5;
 export function fromDiscordMessage(message, botId, botRoleId) {
   return {
     fromBot: message.author.id === botId,
+    createdAt: message.createdTimestamp,
     author: message.member?.displayName ?? message.author.globalName ?? message.author.username,
     text: stripBotMention(message.content || embedsToText(message.embeds), botId, botRoleId),
     imageUrls: [...message.attachments.values()]
@@ -46,14 +51,28 @@ export function stripBotMention(text, botId, botRoleId) {
  * attached from the latest message, to keep requests small.
  */
 export function buildClaudeMessages(entries) {
+  // Decide which messages' images to send: the latest message's, plus recent ones (newest first).
+  const latestAt = entries[entries.length - 1]?.createdAt;
+  const withImages = new Map();
+  let budget = MAX_TOTAL_IMAGES;
+  for (let i = entries.length - 1; i >= 0 && budget > 0; i--) {
+    const e = entries[i];
+    const recent = i === entries.length - 1 || (latestAt && e.createdAt && latestAt - e.createdAt <= RECENT_MS);
+    if (e.fromBot || !recent || !e.imageUrls.length) continue;
+    const urls = e.imageUrls.slice(0, Math.min(budget, i === entries.length - 1 ? Math.max(MAX_IMAGES, 10) : 10));
+    withImages.set(i, urls);
+    budget -= urls.length;
+  }
+
   const turns = [];
   entries.forEach((entry, i) => {
     const isLatest = i === entries.length - 1;
+    const images = withImages.get(i) ?? [];
     const role = entry.fromBot ? "assistant" : "user";
     const blocks = [];
 
-    if (role === "user" && isLatest) {
-      for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) {
+    if (role === "user") {
+      for (const url of images) {
         blocks.push({ type: "image", source: { type: "url", url } });
       }
     }
@@ -64,9 +83,7 @@ export function buildClaudeMessages(entries) {
       if (!text) return;
       text = `${entry.author}: ${text}`;
       // Spell out the URLs too, so Mimi can hand them to Canva.
-      if (isLatest) {
-        for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) text += `\n[attached image: ${url}]`;
-      }
+      for (const url of images) text += `\n[attached image: ${url}]`;
     } else {
       // Mimi's generated images, so she can edit them in follow-ups.
       for (const url of entry.imageUrls.slice(0, MAX_IMAGES)) text += `\n[your generated image: ${url}]`;

@@ -93,6 +93,10 @@ All settings live in `.env` (see `.env.example`):
 
 If Claude's safety filters decline a request, it's automatically retried on Anthropic's recommended fallback model (server-side fallbacks).
 
+### Weekly marketing report deck
+
+Post the data screenshots (command center, Ads Manager) in one or more messages, then ask: *"Mimi, build this week's marketing report."* She reads every screenshot, builds a PowerPoint in the house style (dark #0B0F0E background, #22C55E accent, bar charts drawn as shapes, CPL and CAC on every data slide, data date on every slide), and attaches it. Her reply is the Discord-paste summary plus a **"Numbers I read"** list to check her transcription. Reply with corrections and she rebuilds it. Screenshots from the last 2 hours (up to 20) are read together.
+
 ### Account knowledge base
 
 [`knowledge/`](knowledge/) is loaded ahead of everything else and outranks the brand kits and playbooks:

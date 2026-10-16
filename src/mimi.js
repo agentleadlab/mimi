@@ -10,6 +10,7 @@ import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js"
 import { geminiConfigured } from "./gemini.js";
 import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 import { metaConfigured } from "./meta/api.js";
+import { reportToolNames, reportTools, runReportTool } from "./reports/tools.js";
 import { metaToolNames, metaTools, runMetaTool } from "./meta/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -60,7 +61,28 @@ function runtimeNotes(canvaOn, samplesOn, imagesOn, metaOn) {
   - Then 1–5 sections, each starting with \`## Heading\` (short, e.g. "The idea", "Copy options", "What to test", "Next steps"), followed by bullets or short lines.
   - Use **bold** for key words. No tables, no \`###\` subheadings, no horizontal rules. Each section stays under ~900 characters.
   - Keep the whole reply tight — the card is the deliverable, not an essay.
-- Image attachments in the latest message are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
+
+## Weekly Marketing Report (your job)
+
+You build the team's marketing report deck. Kath shares screenshots of the data (command center, Ads Manager) in one or several messages, then asks for the report. Use create_report_deck; the .pptx attaches to your reply.
+1. **Read every screenshot carefully.** Transcribe numbers exactly as shown: never round, estimate or fill a gap. If a value is cut off or unreadable, pass null and list it. Work out the date range from the screenshots (e.g. "30 days ending Oct 16"). If it isn't visible, state your assumption.
+2. **Build the deck from what the data supports** (skip slides with no data), in this default order:
+   - title (prepared for Jen, Tre & K2);
+   - headline KPIs (VET and Truckers: spend, leads, CPL, closes, CAC, ROAS, with change vs the last report when the knowledge base or screenshots give it);
+   - campaign structure (cpl_cac);
+   - creative families (cpl_cac);
+   - best and worst ad sets (cpl_cac);
+   - states / TALP (cpl_cac);
+   - what changed and what we learned (bullets: check the Corrections Log before calling a pattern);
+   - Fund vs Cut-or-hold (two_column: nothing under 30 days of data goes in Cut, so call it "Flag for review");
+   - next steps and open questions (bullets).
+   Up to ~12 slides.
+3. Every data slide shows **CPL and CAC together** (cpl_cac rows, or bars with cpl/cac per row), carries a \`source\` with the data date, and has a one-line takeaway as its subtitle. Rank rows by CAC. Leave out MARTIN, and exclude any vertical Kath excludes completely.
+4. 7-day data is for monitoring only. Say so on those slides, and never recommend cuts from it.
+5. Your Discord reply = the **Discord-paste block**: a plain-text summary of the report for the team (no tables, bold labels, short lines). Then a **"Numbers I read"** section listing the key figures per screenshot so Kath can verify the transcription, and any values you couldn't read. The deck attaches automatically.
+6. When Kath sends corrections ("CAC on V.8 is $168, not $186"), rebuild the deck with the fixes and say what changed.
+
+- Image attachments (from the latest message, plus screenshots from earlier messages in the last 2 hours) are listed as "[attached image: URL]" — pass those URLs to Canva tools when the user wants that image in a design.
 ${
   imagesOn
     ? `
@@ -143,6 +165,7 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
   const imagesOn = geminiConfigured();
   const metaOn = metaConfigured();
   const tools = [
+    ...reportTools,
     ...(metaOn ? metaTools : []),
     ...(samplesOn ? sampleTools : []),
     ...(imagesOn ? imageTools : []),
@@ -173,7 +196,9 @@ export async function askMimi(messages, { requester, files = [] } = {}) {
       const calls = response.content.filter((b) => b.type === "tool_use");
       const results = await Promise.all(
         calls.map(async (call) => {
-          const { content, isError } = metaToolNames.has(call.name)
+          const { content, isError } = reportToolNames.has(call.name)
+            ? await runReportTool(call.name, call.input, { requester, files })
+            : metaToolNames.has(call.name)
             ? await runMetaTool(call.name, call.input, { files })
             : sampleToolNames.has(call.name)
             ? await runSampleTool(call.name, call.input, { requester })
