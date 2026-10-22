@@ -74,6 +74,9 @@ export const config = {
   ),
   // Where announcements like the marketing brief go (channel ID). Default: a channel named like "marketing".
   marketingChannelId: process.env.MARKETING_CHANNEL_ID,
+  // Client-facing servers (agents who bought leads). There Mimi only shares ad samples, by the
+  // channel's lead type, once per channel, and has no access to internal tools or data.
+  clientGuildIds: list(process.env.CLIENT_GUILD_IDS),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -104,3 +107,5 @@ export function previewLength() {
   const sec = config.previewSeconds % 60;
   return [m && `${m} min`, sec && `${sec} sec`].filter(Boolean).join(" ") || "0 sec";
 }
+
+export const isClientGuild = (guildId) => Boolean(guildId) && config.clientGuildIds.includes(guildId);

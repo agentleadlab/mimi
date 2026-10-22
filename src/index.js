@@ -1,9 +1,10 @@
-import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, Partials } from "discord.js";
-import { canvaConfigured, config, missingCanvaVars, missingRequired } from "./config.js";
+import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
+import { canvaConfigured, config, isClientGuild, missingCanvaVars, missingRequired } from "./config.js";
+import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { COLORS, noticeCard, replyMessages, setIdentity } from "./ui.js";
-import { commandsByName } from "./commands.js";
+import { clientCommandNames, commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
 import { startServer } from "./server.js";
@@ -101,10 +102,18 @@ client.on(Events.MessageCreate, async (message) => {
 
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
     const files = [];
-    const reply = await askMimi(buildClaudeMessages(entries), { requester, files, guild: message.guild });
+    // In client servers, Mimi only shares ad samples (by channel lead type, once per channel).
+    const clientContext = isClientGuild(message.guildId) ? { channel: message.channel, botId: client.user.id, shared: false } : undefined;
+    const reply = await askMimi(buildClaudeMessages(entries), { requester, files, guild: message.guild, clientContext });
     stopTyping();
 
-    await send(message, replyMessages(reply, { requester, files }));
+    try {
+      const sent = await send(message, replyMessages(reply, { requester, files }));
+      if (clientContext?.shared) setShareMessage(message.channel.id, sent.url);
+    } catch (err) {
+      if (clientContext?.shared) forgetShare(message.channel.id); // nothing reached the channel
+      throw err;
+    }
   } catch (err) {
     stopTyping();
     console.error(err);
@@ -118,13 +127,15 @@ client.on(Events.MessageCreate, async (message) => {
 // History in that channel), fall back to a plain message so she isn't silent.
 async function send(message, payloads) {
   const [first, ...rest] = payloads;
+  let sent;
   try {
-    await message.reply({ ...first, allowedMentions: { repliedUser: false } });
+    sent = await message.reply({ ...first, allowedMentions: { repliedUser: false } });
   } catch (err) {
     console.warn(`Reply failed in #${message.channel.name ?? message.channelId} (${err.message}); sending plainly.`);
-    await message.channel.send(first);
+    sent = await message.channel.send(first);
   }
   for (const p of rest) await message.channel.send(p);
+  return sent;
 }
 
 // Discord error 10062: the interaction was already answered (e.g. by the old
@@ -141,6 +152,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = commandsByName.get(interaction.commandName);
   if (!command) return;
+  if (isClientGuild(interaction.guildId) && !clientCommandNames.has(interaction.commandName)) {
+    return interaction
+      .reply({ embeds: [noticeCard("That command isn't available here.")], flags: MessageFlags.Ephemeral })
+      .catch(() => {});
+  }
   if (command.handle) {
     return command.handle(interaction).catch((err) => {
       if (isExpiredInteraction(err)) return logExpired(interaction);

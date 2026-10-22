@@ -84,6 +84,7 @@ All settings live in `.env` (see `.env.example`):
 | `GEMINI_API_KEY` | (unset) | Turns on image generation (see below) |
 | `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
 | `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
+| `CLIENT_GUILD_IDS` | (unset) | Client-facing server(s): Mimi only shares ad samples there (see below) |
 | `TEAM_MENTIONS` | (unset) | Teammates Mimi can tag, `Name=UserID` pairs (e.g. `Jen=123,K2=456,Tre=789`). Others are looked up by name |
 | `MARKETING_CHANNEL_ID` | (unset) | Where she posts announcements. Default: a channel named like "marketing" |
 | `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |
@@ -170,6 +171,12 @@ Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, 
 - `/samples log` shows who requested each link, for which client, and whether it was opened.
 - **Optional "Sample Log" tab:** every link and every Watch is also written to a tab in the sheet. Paste [`scripts/sample-log.gs`](scripts/sample-log.gs) into the sheet (**Extensions → Apps Script**), set its `SECRET`, then deploy it as a web app (**Execute as: Me, Who has access: Anyone**). Put the web app URL and the secret in `SAMPLES_LOG_URL` and `SAMPLES_LOG_SECRET`. The log stores a short ID per link, never a working link.
 - Loom videos must be viewable by anyone with the link (Loom's default) for the embedded player to work.
+
+**Client server.** In servers listed in `CLIENT_GUILD_IDS`, Mimi talks to agents directly and runs in a locked-down mode:
+- The lead type comes from the channel name (`#client-name-lead-type`, e.g. `#mia-hilligoss-trucker` = Truckers; short forms like `vets`, `mp`, `fe`, `iul` work). She only shares samples of that lead type.
+- If the name doesn't show a lead type, she asks the agent which lead type the client purchased before sharing.
+- Each channel gets samples **once**. She checks her record and the channel history, and points to the earlier message instead of re-sharing.
+- Only the ad-sample tools and `/sample` exist there. No internal knowledge, numbers, Canva, Meta or posting tools, and other slash commands aren't registered. She doesn't discuss internal data and hands anything else to the team.
 
 This stops casual forwarding, but it isn't DRM: a determined viewer could still find the Loom video address in the page code during their window.
 

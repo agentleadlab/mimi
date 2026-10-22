@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { REST, Routes } from "discord.js";
-import { config } from "./config.js";
-import { commands } from "./commands.js";
+import { config, isClientGuild } from "./config.js";
+import { clientCommands, commands } from "./commands.js";
 
 /**
  * Register slash commands with Discord.
@@ -21,7 +21,9 @@ export async function registerCommands(applicationId = config.discordClientId, g
   }
 
   for (const guildId of targets) {
-    await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body });
+    // Client servers only get the client-safe commands.
+    const guildBody = isClientGuild(guildId) ? clientCommands.map((c) => c.data.toJSON()) : body;
+    await rest.put(Routes.applicationGuildCommands(applicationId, guildId), { body: guildBody });
   }
   console.log(`Registered ${body.length} slash commands in ${targets.length} server(s).`);
   if (guildIds?.length) await rest.put(Routes.applicationCommands(applicationId), { body: [] });

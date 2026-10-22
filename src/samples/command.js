@@ -1,5 +1,7 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { config, previewLength } from "../config.js";
+import { config, isClientGuild, previewLength } from "../config.js";
+import { runSampleTool } from "./tools.js";
+import { forgetShare, setShareMessage } from "./clientShare.js";
 import { addToCache, getSamples, loomVideoId, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
 import { callSheetScript, sheetLogConfigured } from "./sheetLog.js";
 import { card, COLORS, noticeCard } from "../ui.js";
@@ -76,6 +78,7 @@ export const sampleCommand = {
   autocomplete: autocompleteSamples,
 
   async handle(interaction) {
+    if (isClientGuild(interaction.guildId)) return clientSample(interaction);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     if (!samplesConfigured()) return say(interaction, NOT_CONFIGURED);
 
@@ -95,6 +98,55 @@ export const sampleCommand = {
     return interaction.editReply(linksMessage(matches.slice(0, 10), { requestedBy: who(interaction), client }));
   },
 };
+
+/**
+ * /sample in a client server: the lead type comes from the channel name (the
+ * option only counts when the name doesn't show one), shared once per channel, publicly.
+ */
+async function clientSample(interaction) {
+  await interaction.deferReply();
+  if (!samplesConfigured()) return say(interaction, "Ad samples aren't available right now. The team will follow up.");
+  const context = {
+    requester: who(interaction),
+    client: { channel: interaction.channel, botId: interaction.client.user.id, shared: false },
+  };
+  const result = await runSampleTool(
+    "create_sample_preview_links",
+    { confirmed_lead_type: interaction.options.getString("lead_type") ?? undefined, client: `#${interaction.channel.name}` },
+    context,
+  );
+  let data = null;
+  try {
+    data = JSON.parse(result.content);
+  } catch {}
+  if (data?.already_shared) {
+    const where = data.message_link?.startsWith("http") ? `: ${data.message_link}` : " (scroll up)";
+    return say(interaction, `Samples were already shared in this channel${where}. Each channel gets them once.`, COLORS.info);
+  }
+  if (result.isError || !data?.links?.length) return say(interaction, result.content);
+  try {
+    const sent = await interaction.editReply({
+      embeds: [
+        card({
+          title: data.links.length === 1 ? `${data.lead_type} ad sample` : `${data.links.length} ${data.lead_type} ad samples`,
+          description: "Tap a link to watch.",
+          fields: [
+            ...data.links.map((l) => ({ name: `🎬 ${l.sample}`, value: l.url })),
+            {
+              name: "⏱️ How the links work",
+              value: `• **${previewLength()}** of viewing once you press ▶ Watch\n• Unopened links expire in **${config.unopenedLinkDays} days**`,
+            },
+          ],
+          footerText: `for ${context.requester}`,
+        }),
+      ],
+    });
+    setShareMessage(interaction.channel.id, sent.url);
+  } catch (err) {
+    forgetShare(interaction.channel.id);
+    throw err;
+  }
+}
 
 const fmtTime = (ms) => `<t:${Math.floor(ms / 1000)}:R>`;
 

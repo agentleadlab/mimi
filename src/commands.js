@@ -159,3 +159,7 @@ export const commands = [
 ];
 
 export const commandsByName = new Map(commands.map((c) => [c.data.name, c]));
+
+// The only commands registered in client servers.
+export const clientCommandNames = new Set(["sample"]);
+export const clientCommands = commands.filter((c) => clientCommandNames.has(c.data.name));

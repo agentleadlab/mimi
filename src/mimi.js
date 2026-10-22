@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
-import { canvaConfigured, config } from "./config.js";
+import { canvaConfigured, config, previewLength } from "./config.js";
 import { isConnected } from "./canva/auth.js";
 import { canvaTools, runCanvaTool } from "./canva/tools.js";
 import { samplesConfigured } from "./samples/library.js";
-import { runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
+import { clientSampleTools, runSampleTool, sampleToolNames, sampleTools } from "./samples/tools.js";
 import { geminiConfigured } from "./gemini.js";
 import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 import { metaConfigured } from "./meta/api.js";
@@ -149,6 +149,32 @@ function systemPrompt(canvaOn, samplesOn, imagesOn, metaOn) {
   return [{ type: "text", text: persona + runtimeNotes(canvaOn, samplesOn, imagesOn, metaOn) + knowledge, cache_control: { type: "ephemeral" } }];
 }
 
+// In client servers Mimi talks to agents (customers): a separate, minimal prompt with
+// no internal knowledge, and only the ad sample tools.
+function clientSystemPrompt(channelName) {
+  return [
+    {
+      type: "text",
+      text: `You are Mimi, ${config.brandName}'s assistant in the client Discord server. You're talking with insurance agents who buy leads from ${config.brandName}. Be warm, brief and professional.
+
+## What you do here
+Share ad sample videos with agents, following these rules exactly:
+- Channels are named "#client-name-lead-type" (e.g. #mia-hilligoss-trucker = Trucker). The lead type always comes from the channel name: you're in #${channelName}. Only share samples for that lead type, never any other, even if asked.
+- Never guess the lead type. If the channel name doesn't show it, ask the agent which lead type the client purchased before sharing anything. Then pass their answer as confirmed_lead_type.
+- Each channel gets samples once. The tools check the channel's history. If samples were already shared, don't share again: point the agent to the earlier message (give its link).
+- Ad samples are videos only. Share them only through create_sample_preview_links, and never reveal or guess Loom or other video links.
+- When you share, list each sample name with its link, and say each link gives ${previewLength()} of viewing once they press Watch (unopened links expire in ${config.unopenedLinkDays} days).
+
+## Boundaries
+- Never share internal information: ad spend, CPL, CAC, ROAS, campaign or creative performance, other clients, team conversations, internal tools or processes. If asked, say a team member will follow up.
+- For anything beyond ad samples (billing, lead delivery, replacements, account questions), say briefly that the ${config.brandName} team will help and leave it there. Don't promise outcomes.
+
+## Format
+Replies show as cards: start with "# Title" (short), one or two lines, then "## Section" headings if needed. Keep it short. No tables.`,
+    },
+  ];
+}
+
 const client = new Anthropic();
 
 const BETAS = ["server-side-fallback-2026-07-01"];
@@ -161,7 +187,8 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild } = {}) {
+export async function askMimi(messages, { requester, files = [], guild, clientContext } = {}) {
+  if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext });
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
@@ -174,13 +201,17 @@ export async function askMimi(messages, { requester, files = [], guild } = {}) {
     ...(imagesOn ? imageTools : []),
     ...(canvaOn ? canvaTools : []),
   ];
+  return runLoop(messages, { system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn), tools, requester, files, guild });
+}
+
+async function runLoop(messages, { system, tools, requester, files, guild, clientContext }) {
   const convo = [...messages];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const response = await client.beta.messages.create({
       model: config.model,
       max_tokens: config.maxTokens,
-      system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn),
+      system,
       messages: convo,
       thinking: { type: "adaptive" },
       output_config: { effort: config.effort },
@@ -197,8 +228,12 @@ export async function askMimi(messages, { requester, files = [], guild } = {}) {
     if (response.stop_reason === "tool_use") {
       convo.push({ role: "assistant", content: response.content });
       const calls = response.content.filter((b) => b.type === "tool_use");
+      const allowed = new Set(tools.map((t) => t.name));
       const results = await Promise.all(
         calls.map(async (call) => {
+          if (!allowed.has(call.name)) {
+            return { type: "tool_result", tool_use_id: call.id, content: `${call.name} isn't available here.`, is_error: true };
+          }
           const { content, isError } = discordToolNames.has(call.name)
             ? await runDiscordTool(call.name, call.input, { requester, guild })
             : reportToolNames.has(call.name)
@@ -206,7 +241,7 @@ export async function askMimi(messages, { requester, files = [], guild } = {}) {
             : metaToolNames.has(call.name)
             ? await runMetaTool(call.name, call.input, { files })
             : sampleToolNames.has(call.name)
-            ? await runSampleTool(call.name, call.input, { requester })
+            ? await runSampleTool(call.name, call.input, { requester, client: clientContext })
             : imageToolNames.has(call.name)
               ? await runImageTool(call.name, call.input, { requester, files })
               : await runCanvaTool(call.name, call.input);
