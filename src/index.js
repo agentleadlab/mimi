@@ -8,6 +8,7 @@ import { clientCommandNames, commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
 import { startServer } from "./server.js";
+import { ProgressCard, startStep } from "./progress.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -91,6 +92,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (!(await shouldReply(message))) return;
 
   const stopTyping = keepTyping(message.channel);
+  let progress;
   try {
     const earlier = await message.channel.messages
       .fetch({ limit: config.historyLimit, before: message.id })
@@ -104,11 +106,15 @@ client.on(Events.MessageCreate, async (message) => {
     const files = [];
     // In client servers, Mimi only shares ad samples (by channel lead type, once per channel).
     const clientContext = isClientGuild(message.guildId) ? { channel: message.channel, botId: client.user.id, shared: false } : undefined;
-    const reply = await askMimi(buildClaudeMessages(entries), { requester, files, guild: message.guild, clientContext });
+    const claudeMessages = buildClaudeMessages(entries);
+    const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
+    // Slower jobs get a live progress card that turns into the answer.
+    progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
+    const reply = await askMimi(claudeMessages, { requester, files, guild: message.guild, clientContext, progress });
     stopTyping();
 
     try {
-      const sent = await send(message, replyMessages(reply, { requester, files }));
+      const sent = await send(message, replyMessages(reply, { requester, files }), progress);
       if (clientContext?.shared) setShareMessage(message.channel.id, sent.url);
     } catch (err) {
       if (clientContext?.shared) forgetShare(message.channel.id); // nothing reached the channel
@@ -117,7 +123,9 @@ client.on(Events.MessageCreate, async (message) => {
   } catch (err) {
     stopTyping();
     console.error(err);
-    await send(message, [{ embeds: [noticeCard(describeError(err), { color: COLORS.error })] }]).catch((e) =>
+    const notice = { embeds: [noticeCard(describeError(err), { color: COLORS.error })] };
+    const shown = await progress?.cancel();
+    await (shown ? shown.edit({ ...notice, attachments: [] }) : send(message, [notice])).catch((e) =>
       console.error("Couldn't send error message:", e),
     );
   }
@@ -125,15 +133,19 @@ client.on(Events.MessageCreate, async (message) => {
 
 // Reply to the message; if Discord refuses (e.g. Mimi lacks Read Message
 // History in that channel), fall back to a plain message so she isn't silent.
-async function send(message, payloads) {
-  const [first, ...rest] = payloads;
-  let sent;
+async function replyTo(message, payload) {
   try {
-    sent = await message.reply({ ...first, allowedMentions: { repliedUser: false } });
+    return await message.reply({ ...payload, allowedMentions: { repliedUser: false } });
   } catch (err) {
     console.warn(`Reply failed in #${message.channel.name ?? message.channelId} (${err.message}); sending plainly.`);
-    sent = await message.channel.send(first);
+    return message.channel.send(payload);
   }
+}
+
+/** Send reply payloads; the first replaces the progress card if one is showing. Returns the first message. */
+async function send(message, payloads, progress) {
+  const [first, ...rest] = payloads;
+  const sent = progress ? await progress.finish(first) : await replyTo(message, first);
   for (const p of rest) await message.channel.send(p);
   return sent;
 }
@@ -186,13 +198,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const requester = interaction.member?.displayName ?? interaction.user.username;
     const files = [];
-    const reply = await askMimi(messages, { requester, files, guild: interaction.guild });
-    const [first, ...rest] = replyMessages(reply, { requester, files });
-    await interaction.editReply(first);
-    for (const p of rest) await interaction.followUp(p);
+    const progress = new ProgressCard(
+      { post: (p) => interaction.editReply(p), edit: (_m, p) => interaction.editReply(p), requester },
+      startStep({ imageCount: attachment?.contentType?.startsWith("image/") ? 1 : 0 }),
+    );
+    try {
+      const reply = await askMimi(messages, { requester, files, guild: interaction.guild, progress });
+      const [first, ...rest] = replyMessages(reply, { requester, files });
+      await progress.finish(first);
+      for (const p of rest) await interaction.followUp(p);
+    } finally {
+      await progress.cancel();
+    }
   } catch (err) {
     console.error(err);
-    await interaction.editReply({ embeds: [noticeCard(describeError(err), { color: COLORS.error })] }).catch(() => {});
+    await interaction.editReply({ embeds: [noticeCard(describeError(err), { color: COLORS.error })], attachments: [] }).catch(() => {});
   }
 });
 

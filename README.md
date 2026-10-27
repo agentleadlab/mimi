@@ -10,6 +10,7 @@ Mimi is the Creative Director AI bot for Agent Lead Lab's Discord. She handles c
 - **Attach images** (designs, references, mood boards) and she'll look at them.
 - Replies come as branded cards (Agent Lead Lab green): a title, a short intro, and bold sections, with her avatar on top and the logo plus who asked in the footer. `src/ui.js` builds the cards and keeps them within Discord's limits.
 - She reads the last ~20 messages in the channel, so follow-ups work naturally.
+- **Live progress card:** if an answer takes more than a few seconds (reports, Canva runs, images, Meta pulls), Mimi posts an animated card right away and updates it at each real step (e.g. Reading 8 screenshots → Designing the deck → Putting it together). It then turns into her answer. Quick answers skip it. The animated strips are in `assets/progress/` (regenerate with `python3 scripts/make-progress-assets.py`, which needs Pillow).
 
 Slash commands:
 

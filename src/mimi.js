@@ -187,8 +187,8 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild, clientContext } = {}) {
-  if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext });
+export async function askMimi(messages, { requester, files = [], guild, clientContext, progress } = {}) {
+  if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext, progress });
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
@@ -201,13 +201,15 @@ export async function askMimi(messages, { requester, files = [], guild, clientCo
     ...(imagesOn ? imageTools : []),
     ...(canvaOn ? canvaTools : []),
   ];
-  return runLoop(messages, { system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn), tools, requester, files, guild });
+  return runLoop(messages, { system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn), tools, requester, files, guild, progress });
 }
 
-async function runLoop(messages, { system, tools, requester, files, guild, clientContext }) {
+/** `progress` (optional) is told when tools run and when the answer is being written. */
+async function runLoop(messages, { system, tools, requester, files, guild, clientContext, progress }) {
   const convo = [...messages];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (round > 0) progress?.writing();
     const response = await client.beta.messages.create({
       model: config.model,
       max_tokens: config.maxTokens,
@@ -228,6 +230,7 @@ async function runLoop(messages, { system, tools, requester, files, guild, clien
     if (response.stop_reason === "tool_use") {
       convo.push({ role: "assistant", content: response.content });
       const calls = response.content.filter((b) => b.type === "tool_use");
+      progress?.tools(calls.map((c) => c.name));
       const allowed = new Set(tools.map((t) => t.name));
       const results = await Promise.all(
         calls.map(async (call) => {
