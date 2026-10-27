@@ -80,6 +80,8 @@ export const config = {
   // team channels share one server). CLIENT_GUILD_IDS: whole servers that are client-only.
   clientCategoryIds: list(process.env.CLIENT_CATEGORY_IDS),
   clientGuildIds: list(process.env.CLIENT_GUILD_IDS),
+  // The team's own server(s): client mode never applies here, whatever the settings above say.
+  teamGuildIds: list(process.env.TEAM_GUILD_IDS ?? "1262142521409142825"),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -112,11 +114,13 @@ export function previewLength() {
 }
 
 /** A whole server that's client-only. */
-export const isClientGuild = (guildId) => Boolean(guildId) && config.clientGuildIds.includes(guildId);
+export const isTeamGuild = (guildId) => Boolean(guildId) && config.teamGuildIds.includes(guildId);
+
+export const isClientGuild = (guildId) => Boolean(guildId) && !isTeamGuild(guildId) && config.clientGuildIds.includes(guildId);
 
 /** Is this channel (or thread) client-facing? By server, or by the category it sits in. */
 export function isClientChannel(channel) {
-  if (!channel?.guildId) return false;
+  if (!channel?.guildId || isTeamGuild(channel.guildId)) return false;
   if (isClientGuild(channel.guildId)) return true;
   const category = channel.isThread?.() ? channel.parent?.parentId : channel.parentId;
   return Boolean(category) && config.clientCategoryIds.includes(category);

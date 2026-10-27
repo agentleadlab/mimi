@@ -86,7 +86,8 @@ All settings live in `.env` (see `.env.example`):
 | `GEMINI_IMAGE_MODEL` | `gemini-nano-banana-2.1` | Gemini image model |
 | `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
 | `CLIENT_CATEGORY_IDS` | (unset) | Channel categories holding client channels: Mimi only shares ad samples there (see below) |
-| `CLIENT_GUILD_IDS` | (unset) | Whole servers that are client-only. Don't use this for a server that also has team channels |
+| `CLIENT_GUILD_IDS` | (unset) | Whole servers that are client-only |
+| `TEAM_GUILD_IDS` | `1262142521409142825` | The team's server(s). Client mode never applies here, even if listed above |
 | `TEAM_MENTIONS` | (unset) | Teammates Mimi can tag, `Name=UserID` pairs (e.g. `Jen=123,K2=456,Tre=789`). Others are looked up by name |
 | `MARKETING_CHANNEL_ID` | (unset) | Where she posts announcements. Default: a channel named like "marketing" |
 | `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |

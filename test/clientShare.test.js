@@ -107,3 +107,13 @@ test("client mode is per category, so team channels in the same server stay norm
   assert.equal(isClientChannel({ guildId: "g1", isThread: () => true, parent: { parentId: "cat-clients" } }), true);
   assert.equal(isClientChannel({ guildId: null }), false);
 });
+
+test("client mode never applies in the team server", async () => {
+  const { config, isClientChannel, isClientGuild } = await import("../src/config.js");
+  config.clientGuildIds = ["1262142521409142825", "999"];
+  config.clientCategoryIds = ["cat-clients"];
+  const team = { guildId: "1262142521409142825", parentId: "cat-clients", isThread: () => false };
+  assert.equal(isClientGuild("1262142521409142825"), false);
+  assert.equal(isClientChannel(team), false);
+  assert.equal(isClientChannel({ guildId: "999", isThread: () => false }), true);
+});
