@@ -1,5 +1,5 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
-import { canvaConfigured, config, isClientGuild, missingCanvaVars, missingRequired } from "./config.js";
+import { canvaConfigured, config, isClientChannel, missingCanvaVars, missingRequired } from "./config.js";
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
@@ -105,7 +105,7 @@ client.on(Events.MessageCreate, async (message) => {
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
     const files = [];
     // In client servers, Mimi only shares ad samples (by channel lead type, once per channel).
-    const clientContext = isClientGuild(message.guildId) ? { channel: message.channel, botId: client.user.id, shared: false } : undefined;
+    const clientContext = isClientChannel(message.channel) ? { channel: message.channel, botId: client.user.id, shared: false } : undefined;
     const claudeMessages = buildClaudeMessages(entries);
     const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
     // Slower jobs get a live progress card that turns into the answer.
@@ -164,7 +164,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const command = commandsByName.get(interaction.commandName);
   if (!command) return;
-  if (isClientGuild(interaction.guildId) && !clientCommandNames.has(interaction.commandName)) {
+  if (isClientChannel(interaction.channel) && !clientCommandNames.has(interaction.commandName)) {
     return interaction
       .reply({ embeds: [noticeCard("That command isn't available here.")], flags: MessageFlags.Ephemeral })
       .catch(() => {});

@@ -74,8 +74,11 @@ export const config = {
   ),
   // Where announcements like the marketing brief go (channel ID). Default: a channel named like "marketing".
   marketingChannelId: process.env.MARKETING_CHANNEL_ID,
-  // Client-facing servers (agents who bought leads). There Mimi only shares ad samples, by the
+  // Client-facing channels (agents who bought leads). There Mimi only shares ad samples, by the
   // channel's lead type, once per channel, and has no access to internal tools or data.
+  // CLIENT_CATEGORY_IDS: channel categories holding client channels (use this when client and
+  // team channels share one server). CLIENT_GUILD_IDS: whole servers that are client-only.
+  clientCategoryIds: list(process.env.CLIENT_CATEGORY_IDS),
   clientGuildIds: list(process.env.CLIENT_GUILD_IDS),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
@@ -108,4 +111,13 @@ export function previewLength() {
   return [m && `${m} min`, sec && `${sec} sec`].filter(Boolean).join(" ") || "0 sec";
 }
 
+/** A whole server that's client-only. */
 export const isClientGuild = (guildId) => Boolean(guildId) && config.clientGuildIds.includes(guildId);
+
+/** Is this channel (or thread) client-facing? By server, or by the category it sits in. */
+export function isClientChannel(channel) {
+  if (!channel?.guildId) return false;
+  if (isClientGuild(channel.guildId)) return true;
+  const category = channel.isThread?.() ? channel.parent?.parentId : channel.parentId;
+  return Boolean(category) && config.clientCategoryIds.includes(category);
+}

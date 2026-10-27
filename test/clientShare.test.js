@@ -96,3 +96,14 @@ test("finds an earlier share in the channel history", async () => {
   assert.equal(r.isError, true);
   assert.equal(JSON.parse(r.content).message_link, "https://discord.com/channels/1/c4/m1");
 });
+
+test("client mode is per category, so team channels in the same server stay normal", async () => {
+  process.env.CLIENT_CATEGORY_IDS = "cat-clients";
+  const { config, isClientChannel } = await import("../src/config.js");
+  config.clientCategoryIds = ["cat-clients"];
+  const ch = (parentId, extra = {}) => ({ guildId: "g1", parentId, isThread: () => false, ...extra });
+  assert.equal(isClientChannel(ch("cat-clients")), true);
+  assert.equal(isClientChannel(ch("cat-team")), false); // e.g. #ask-mimi
+  assert.equal(isClientChannel({ guildId: "g1", isThread: () => true, parent: { parentId: "cat-clients" } }), true);
+  assert.equal(isClientChannel({ guildId: null }), false);
+});

@@ -1,5 +1,5 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
-import { config, isClientGuild, previewLength } from "../config.js";
+import { config, isClientChannel, previewLength } from "../config.js";
 import { runSampleTool } from "./tools.js";
 import { forgetShare, setShareMessage } from "./clientShare.js";
 import { addToCache, getSamples, loomVideoId, samplesConfigured, searchSamples, verticalsOf } from "./library.js";
@@ -78,7 +78,7 @@ export const sampleCommand = {
   autocomplete: autocompleteSamples,
 
   async handle(interaction) {
-    if (isClientGuild(interaction.guildId)) return clientSample(interaction);
+    if (isClientChannel(interaction.channel)) return clientSample(interaction);
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     if (!samplesConfigured()) return say(interaction, NOT_CONFIGURED);
 
