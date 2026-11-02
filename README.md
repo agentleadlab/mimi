@@ -24,6 +24,7 @@ Slash commands:
 | `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
 | `/refresh hook [vertical] [notes] [versions]` | Refresh a tired hook: same idea, new opening, detail and emotion |
 | `/cpl [name] [level] [range]` | Live Meta numbers: spend, leads, CPL (needs `META_ACCESS_TOKEN`) |
+| `/copies [status] [page]` | Copyright reports on pages copying our ads (see "Copied ads") |
 | `/sample lead_type [sample] [client]` | The ad sample link for a lead type (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
@@ -132,6 +133,10 @@ Setup (once):
 4. Put the ad account ID(s) in `META_AD_ACCOUNT_IDS` (comma-separated, with or without `act_`; it's in Ads Manager's URL as `act=`).
 
 Leads are counted from Meta's `lead` action by default (falling back to on-Facebook or pixel leads). Set `META_LEAD_ACTION` if your account counts leads differently. Dates follow the ad account's timezone.
+
+### Copied ads (copyright reports)
+
+When a page copies our ads (Tre's videos, our creative or scripts), send Mimi the link to the copy and our original: *"Mimi, this page copied our VET PLUS ad: <ad library link>, original: <link>"*. Following [`playbooks/copyright-reports.md`](playbooks/copyright-reports.md), she drafts one accurate report, field by field, for Meta's copyright form (facebook.com/help/contact/copyright) and logs it as `CR-n`. The rights owner (or someone authorized) fills in the contact details and signature and submits it; Mimi never does. Update it in chat (*"CR-3 submitted, Meta #123"*, *"CR-3 removed"*) and see everything with `/copies`. She drafts one report per copy, never mass reports.
 
 ### Image generation (Gemini)
 

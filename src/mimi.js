@@ -12,6 +12,7 @@ import { imageToolNames, imageTools, runImageTool } from "./images/tools.js";
 import { metaConfigured } from "./meta/api.js";
 import { reportToolNames, reportTools, runReportTool } from "./reports/tools.js";
 import { discordToolNames, discordTools, runDiscordTool } from "./discord/tools.js";
+import { brandToolNames, brandTools, runBrandTool } from "./brand/tools.js";
 import { metaToolNames, metaTools, runMetaTool } from "./meta/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -220,6 +221,7 @@ When you do answer:
   const imagesOn = geminiConfigured();
   const metaOn = metaConfigured();
   const tools = [
+    ...brandTools,
     ...(guild ? discordTools : []),
     ...reportTools,
     ...(metaOn ? metaTools : []),
@@ -263,7 +265,9 @@ async function runLoop(messages, { system, tools, requester, files, guild, clien
           if (!allowed.has(call.name)) {
             return { type: "tool_result", tool_use_id: call.id, content: `${call.name} isn't available here.`, is_error: true };
           }
-          const { content, isError } = discordToolNames.has(call.name)
+          const { content, isError } = brandToolNames.has(call.name)
+            ? await runBrandTool(call.name, call.input, { requester })
+            : discordToolNames.has(call.name)
             ? await runDiscordTool(call.name, call.input, { requester, guild })
             : reportToolNames.has(call.name)
             ? await runReportTool(call.name, call.input, { requester, files })
