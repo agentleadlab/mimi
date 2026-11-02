@@ -40,7 +40,7 @@ Slash commands:
    - Optional: upload an avatar.
 4. **OAuth2 → URL Generator**:
    - Scopes: `bot`, `applications.commands`
-   - Bot permissions: View Channels, Send Messages, Send Messages in Threads, Read Message History, Attach Files, Embed Links
+   - Bot permissions: View Channels, Send Messages, Create Public Threads, Send Messages in Threads, Read Message History, Attach Files, Embed Links
    - Open the generated URL and invite Mimi to your server.
 5. Optional: turn on Developer Mode (User Settings → Advanced), then right-click your server → **Copy Server ID**. That's `DISCORD_GUILD_ID`, and with it set, slash commands show up instantly.
 

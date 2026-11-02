@@ -6,7 +6,7 @@ import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
 import { COLORS, noticeCard, parseReply, replyMessages, setIdentity } from "./ui.js";
 import { clientCommandNames, commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
-import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
+import { ensureGuildInstallSettings, inviteUrl, missingChannelPermissions } from "./install.js";
 import { startServer } from "./server.js";
 import { ProgressCard, startStep } from "./progress.js";
 
@@ -40,6 +40,17 @@ client.once(Events.ClientReady, (c) => {
   ensureGuildInstallSettings(c)
     .then((changed) => changed && console.log("Updated the app's server install settings to add Mimi as a bot member."))
     .catch((err) => console.error("Couldn't update install settings:", err.message));
+
+  // Check the channels where Mimi answers Rook, and say plainly what's missing.
+  for (const id of config.botWatchChannelIds) {
+    const channel = c.channels.cache.get(id);
+    if (!channel) {
+      console.warn(`Rook channel ${id}: Mimi can't see it (not in that server, or no View Channel).`);
+      continue;
+    }
+    const missing = missingChannelPermissions(channel, channel.guild.members.me);
+    console.log(missing.length ? `#${channel.name}: Mimi is missing ${missing.join(", ")}.` : `#${channel.name}: all permissions OK (threads included).`);
+  }
 
   const url = inviteUrl(c.application.id);
   if (c.guilds.cache.size === 0) {
@@ -179,6 +190,10 @@ client.on(Events.MessageCreate, async (message) => {
     try {
       const payloads = replyMessages(reply, { requester, files });
       const thread = useThread ? await threadFor(message, parseReply(reply).title) : null;
+      if (useThread && !thread) {
+        const tip = threadTip(message.channel);
+        if (tip) payloads.push(tip);
+      }
       const sent = thread ? await sendAll(thread, payloads) : await send(message, payloads, progress);
       if (clientContext?.shared) setShareMessage(message.channel.id, sent.url);
     } catch (err) {
@@ -206,6 +221,23 @@ async function threadFor(message, title) {
     console.warn(`Couldn't start a thread in #${message.channel.name} (${err.message}); replying in the channel.`);
     return null;
   }
+}
+
+// Say once per channel (per restart) why Mimi answered in the channel instead of a thread.
+const tippedChannels = new Set();
+function threadTip(channel) {
+  if (tippedChannels.has(channel.id)) return null;
+  tippedChannels.add(channel.id);
+  const missing = missingChannelPermissions(channel, channel.guild.members.me).filter((p) => /Thread/.test(p));
+  return {
+    embeds: [
+      noticeCard(
+        `I couldn't start a thread here, so I answered in the channel. Give me ${
+          missing.length ? missing.map((p) => `**${p.replace(/([a-z])([A-Z])/g, "$1 $2")}**`).join(" and ") : "**Create Public Threads**"
+        } in #${channel.name} and I'll keep Rook's answers in threads.`,
+      ),
+    ],
+  };
 }
 
 async function sendAll(channel, payloads) {

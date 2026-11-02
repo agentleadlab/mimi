@@ -1,9 +1,10 @@
 import { OAuth2Scopes, PermissionFlagsBits, PermissionsBitField, Routes } from "discord.js";
 
-// What Mimi needs in a channel to read and answer plain messages.
-const BOT_PERMISSIONS = new PermissionsBitField([
+// What Mimi needs in a channel to read and answer messages, and to answer bots like Rook in threads.
+export const BOT_PERMISSIONS = new PermissionsBitField([
   PermissionFlagsBits.ViewChannel,
   PermissionFlagsBits.SendMessages,
+  PermissionFlagsBits.CreatePublicThreads,
   PermissionFlagsBits.SendMessagesInThreads,
   PermissionFlagsBits.EmbedLinks,
   PermissionFlagsBits.AttachFiles,
@@ -53,4 +54,11 @@ export async function ensureGuildInstallSettings(client) {
     },
   });
   return true;
+}
+
+/** Permissions Mimi is missing in a channel, by name (empty if she has them all). */
+export function missingChannelPermissions(channel, me) {
+  const have = channel?.permissionsFor?.(me);
+  if (!have) return BOT_PERMISSIONS.toArray();
+  return BOT_PERMISSIONS.toArray().filter((p) => !have.has(p));
 }

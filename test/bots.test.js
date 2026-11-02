@@ -21,3 +21,11 @@ test("ad-related bot messages pass the first filter; others don't", async () => 
   assert.equal(mentionsAds("Payment link for Oct 28 is live, 30 vets delivered"), false);
   assert.deepEqual(cfg.botWatchChannelIds, ["1566836453613240511"]);
 });
+
+test("reports missing thread permissions by name", async () => {
+  const { PermissionsBitField, PermissionFlagsBits: F } = await import("discord.js");
+  const { missingChannelPermissions } = await import("../src/install.js");
+  const have = new PermissionsBitField([F.ViewChannel, F.SendMessages, F.EmbedLinks, F.AttachFiles, F.ReadMessageHistory, F.SendMessagesInThreads]);
+  const channel = { permissionsFor: () => have };
+  assert.deepEqual(missingChannelPermissions(channel, {}), ["CreatePublicThreads"]);
+});
