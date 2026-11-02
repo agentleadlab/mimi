@@ -89,6 +89,7 @@ All settings live in `.env` (see `.env.example`):
 | `CLIENT_GUILD_IDS` | (unset) | Whole servers that are client-only |
 | `TEAM_GUILD_IDS` | `1262142521409142825` | The team's server(s). Client mode never applies here, even if listed above |
 | `ALLOWED_BOT_NAMES` / `ALLOWED_BOT_IDS` | `Rook` / (unset) | Bots Mimi answers when they @mention her (ad samples only). IDs are safer than names |
+| `BOT_WATCH_CHANNEL_IDS` | `1566836453613240511` | Channels where Mimi reads every message from those bots and answers the ones about seeing ads / ad samples, even untagged |
 | `TEAM_MENTIONS` | (unset) | Teammates Mimi can tag, `Name=UserID` pairs (e.g. `Jen=123,K2=456,Tre=789`). Others are looked up by name |
 | `MARKETING_CHANNEL_ID` | (unset) | Where she posts announcements. Default: a channel named like "marketing" |
 | `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |
@@ -171,6 +172,7 @@ Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, 
 - The library lives in a Google Sheet with the columns **Sample Name, Vertical, Campaign/Context, Date Added, Loom Link, Tags**. Share it as *Anyone with the link can view*, and put its link in `SAMPLES_SHEET_URL`. The sheet contains the Loom links, so don't share the sheet link itself. Mimi re-reads the sheet every 5 minutes, or right away with `/samples refresh`.
 - A teammate asks in chat (*"Mimi, I need a vet ad sample for John"*) or uses `/sample`, and gets one link per matching sample to send to the client.
 - **Rook** (the team's request bot) can ask too: when Rook @mentions Mimi, she answers with the sample links. Bots only get ad samples, only on a direct mention, and at most 6 bot requests per channel per 10 minutes, so two bots can't loop.
+- In Rook's requests channel (`BOT_WATCH_CHANNEL_IDS`), Mimi reads every Rook message, even ones tagging someone else. When a client asks to see the ads (*"Am I able to see the advertisement for the lead?"*), she replies with a one-line answer Rook can relay plus that lead type's sample links. She never repeats phone numbers. Anything not about ads gets no reply.
 - The client sees a branded **Watch sample** page. Their 2 min 30 sec start when they press Watch, so link previews in texts and emails don't use up the time. When time's up the page locks and asks them to contact their rep. Links nobody opens expire after 7 days.
 - `/samples add` (Manage Server only) checks the Loom link, rejects duplicate names and videos, and adds the row to the library tab through the same Apps Script. After updating `scripts/sample-log.gs`, redeploy it with **Deploy → Manage deployments → ✏️ → Version: New version** so the URL stays the same.
 - `/samples log` shows who requested each link, for which client, and whether it was opened.

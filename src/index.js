@@ -1,5 +1,5 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
-import { canvaConfigured, config, isAllowedBot, isClientChannel, missingCanvaVars, missingRequired } from "./config.js";
+import { canvaConfigured, config, isAllowedBot, isClientChannel, mentionsAds, missingCanvaVars, missingRequired } from "./config.js";
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
@@ -72,13 +72,24 @@ const BOT_WINDOW_MS = 10 * 60 * 1000;
 const BOT_MAX_PER_WINDOW = 6;
 const botReplies = new Map(); // channelId -> timestamps
 
-function botAllowance(channelId) {
+function botAllowance(channelId, { consume = true } = {}) {
   const now = Date.now();
   const recent = (botReplies.get(channelId) ?? []).filter((t) => now - t < BOT_WINDOW_MS);
-  if (recent.length >= BOT_MAX_PER_WINDOW) return false;
-  recent.push(now);
   botReplies.set(channelId, recent);
+  if (recent.length >= BOT_MAX_PER_WINDOW) return false;
+  if (consume) recent.push(now);
   return true;
+}
+
+/** A bot message in a watched channel that might be about ads, without @mentioning Mimi. */
+function isWatchedBotMessage(message) {
+  return (
+    message.author.bot &&
+    isAllowedBot(message.author) &&
+    config.botWatchChannelIds.includes(message.channelId) &&
+    !message.mentions.users.has(client.user.id) &&
+    mentionsAds(message.content)
+  );
 }
 
 async function shouldReply(message) {
@@ -88,7 +99,8 @@ async function shouldReply(message) {
     if (!isAllowedBot(message.author)) return false;
     const roleId = botRoleId(message);
     const mentioned = message.mentions.users.has(client.user.id) || (roleId && message.mentions.roles.has(roleId));
-    if (!mentioned) return false;
+    // In watched channels, ad-related bot messages are read without a mention (Mimi decides whether to answer).
+    if (!mentioned) return isWatchedBotMessage(message) && botAllowance(message.channelId, { consume: false });
     if (!botAllowance(message.channelId)) {
       console.warn(`Ignoring ${message.author.username} in #${message.channel.name}: too many bot requests in 10 min.`);
       return false;
@@ -118,7 +130,10 @@ function keepTyping(channel) {
 client.on(Events.MessageCreate, async (message) => {
   if (!(await shouldReply(message))) return;
 
-  const stopTyping = keepTyping(message.channel);
+  // Watched bot messages (e.g. Rook tagging Tre about a client) may not need an answer:
+  // stay quiet (no typing, no progress card) until Mimi decides to reply.
+  const watched = isWatchedBotMessage(message);
+  const stopTyping = watched ? () => {} : keepTyping(message.channel);
   let progress;
   try {
     const earlier = await message.channel.messages
@@ -136,7 +151,9 @@ client.on(Events.MessageCreate, async (message) => {
     const claudeMessages = buildClaudeMessages(entries);
     const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
     // Slower jobs get a live progress card that turns into the answer.
-    progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
+    if (!watched) {
+      progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
+    }
     const reply = await askMimi(claudeMessages, {
       requester,
       files,
@@ -144,8 +161,13 @@ client.on(Events.MessageCreate, async (message) => {
       clientContext,
       progress,
       fromBot: message.author.bot ? message.author.username : undefined,
+      watched,
     });
     stopTyping();
+    if (watched) {
+      if (/^\s*NO_REPLY\s*$/.test(reply)) return; // not about ads: say nothing
+      botAllowance(message.channelId); // count it toward the loop cap
+    }
 
     try {
       const sent = await send(message, replyMessages(reply, { requester, files }), progress);

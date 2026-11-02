@@ -86,6 +86,9 @@ export const config = {
   // Bots only get ad sample help.
   allowedBotIds: list(process.env.ALLOWED_BOT_IDS),
   allowedBotNames: list(process.env.ALLOWED_BOT_NAMES ?? "Rook").map((n) => n.toLowerCase()),
+  // Channels where Mimi reads every message from those bots (no @mention needed) and answers
+  // the ones about seeing ads / ad samples. Default: the team's Rook requests channel.
+  botWatchChannelIds: list(process.env.BOT_WATCH_CHANNEL_IDS ?? "1566836453613240511"),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -136,3 +139,7 @@ export function isAllowedBot(user) {
   if (config.allowedBotIds.includes(user.id)) return true;
   return [user.username, user.globalName].some((n) => n && config.allowedBotNames.includes(n.toLowerCase()));
 }
+
+// Cheap first pass before asking Claude: does a bot message mention ads or samples at all?
+const AD_WORDS = /\b(ads?|advert(isement)?s?|ad[- ]?samples?|samples?|creatives?|commercials?|videos?|marketing)\b/i;
+export const mentionsAds = (text) => AD_WORDS.test(String(text ?? ""));

@@ -10,3 +10,14 @@ test("only allowed bots get answered", () => {
   config.allowedBotIds = ["999"];
   assert.equal(isAllowedBot({ bot: true, id: "999", username: "Renamed" }), true);
 });
+
+test("ad-related bot messages pass the first filter; others don't", async () => {
+  const { mentionsAds, config: cfg } = await import("../src/config.js");
+  assert.equal(
+    mentionsAds('<@1> ❓ Question — Robert McCool (AEP, 30 vets): "Am I able to see the advertisement for the lead, or are they different for each lead?"'),
+    true,
+  );
+  assert.equal(mentionsAds("make me a new one: Text-Verified Veteran ad sample link for ReLanda Price"), true);
+  assert.equal(mentionsAds("Payment link for Oct 28 is live, 30 vets delivered"), false);
+  assert.deepEqual(cfg.botWatchChannelIds, ["1566836453613240511"]);
+});

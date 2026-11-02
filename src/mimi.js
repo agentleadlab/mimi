@@ -187,7 +187,7 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot } = {}) {
+export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot, watched } = {}) {
   if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext, progress });
   if (fromBot) {
     // Requests from automation bots (e.g. Rook): ad samples only.
@@ -197,6 +197,20 @@ export async function askMimi(messages, { requester, files = [], guild, clientCo
         type: "text",
         text: `## This request is from ${fromBot}, an automation bot\nThe latest message was sent by ${fromBot}, a bot the team uses to request ad sample links. Handle it like any ad sample request: match the lead type and sample, create the preview links, and pass along the client's name if given. Keep the reply short, with each sample name and its link on its own line so ${fromBot} can read it. You only handle ad samples for ${fromBot}. For anything else, say in one line that a teammate needs to ask directly. Don't ask ${fromBot} questions or invite it to reply. If the request is unclear, make the best match and say what you assumed.`,
       },
+      ...(watched
+        ? [
+            {
+              type: "text",
+              text: `## You weren't tagged: decide whether to answer
+${fromBot} posted this in its requests channel, usually relaying a client's question to a teammate. Answer ONLY if it's about an agent or client wanting to see the ads, advertisements, ad samples or videos their leads come from (e.g. "Am I able to see the advertisement for the lead?", "can he see what the ad looks like?", "send the vet ad samples"). Otherwise reply with exactly NO_REPLY and nothing else. Mentions of ad spend, billing, payment links, lead counts or delivery are NOT reasons to answer.
+When you do answer:
+- Get the lead type from the message (e.g. "30 vets" = Veterans, "FEX" = Final Expense, "MP" = Mortgage Protection, "trucker"/"CDL" = Truckers) and share that lead type's samples with create_sample_preview_links, passing the client's name. If the lead type isn't stated, reply NO_REPLY rather than guess.
+- Start with a 1–2 line answer to the question that ${fromBot} can pass to the client as-is. Be accurate: the samples are the ads we run for that lead type. Specific creative varies by campaign, and a lead can't be traced to the exact ad from here, so don't promise "the exact ad" for each lead.
+- Then each sample name and its link on its own line.
+- Use the client's name only. Never repeat phone numbers, emails or payment details.`,
+            },
+          ]
+        : []),
     ];
     return runLoop(messages, { system, tools: samplesConfigured() ? sampleTools : [], requester, files, progress });
   }
