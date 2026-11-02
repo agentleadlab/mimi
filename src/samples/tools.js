@@ -7,21 +7,21 @@ export const sampleTools = [
   {
     name: "list_ad_samples",
     description:
-      "List the team's ad sample library (sample name, lead type/vertical, campaign, tags). Use it to find which samples fit a request, e.g. 'vet ad' = Veterans, 'MP' = Mortgage Protection.",
+      "List the team's ad sample library. Each sample is one lead type product (e.g. 'Text-Verified VET PLUS', 'Text-Verified VET Standard'), grouped by vertical (Veterans, Truckers, Final Expense…). Use it to match an agent to the one sample for the lead type they're running.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "create_sample_preview_links",
     description:
-      `Create time-limited preview links for ad samples, for the requester to send to a client. Each link gives the client ${previewLength()} of viewing after they press Watch. ` +
-      "Pass exact sample names from list_ad_samples. Only call this when someone actually asks for sample links.",
+      `Create ONE time-limited preview link: the single ad sample matching the lead type this agent runs (${previewLength()} of viewing after they press Watch). ` +
+      "One sample per agent. Only call this once you know their exact lead type; if more than one sample could fit, ask which lead type they're running instead.",
     input_schema: {
       type: "object",
       properties: {
-        sample_names: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 10 },
-        client: { type: "string", description: "Client the links are for, if mentioned." },
+        sample_name: { type: "string", description: "Exact sample name from list_ad_samples." },
+        client: { type: "string", description: "The agent/client the link is for." },
       },
-      required: ["sample_names"],
+      required: ["sample_name"],
     },
   },
 ];
@@ -38,13 +38,13 @@ export const clientSampleTools = [
   {
     name: "create_sample_preview_links",
     description:
-      `Share this channel's ad sample video(s) as time-limited preview links (${previewLength()} of viewing after the viewer presses Watch). ` +
+      `Share this agent's ONE ad sample video as a time-limited preview link (${previewLength()} of viewing after the viewer presses Watch). One sample per agent: if the channel's lead type has several samples and you don't know which one they run, this returns the options to ask about. ` +
       "The lead type always comes from the channel name; you can't share other lead types. Each channel gets samples only once: if they were already shared, this returns the earlier message to point to. " +
       "Only pass confirmed_lead_type when the channel name doesn't show the lead type AND the agent has told you which lead type the client purchased.",
     input_schema: {
       type: "object",
       properties: {
-        sample_names: { type: "array", items: { type: "string" }, maxItems: 10, description: "Specific samples; default: all samples for the lead type." },
+        sample_name: { type: "string", description: "The exact sample for the lead type they run (needed when the lead type has several samples)." },
         confirmed_lead_type: { type: "string", description: "Only when the channel name doesn't show the lead type: what the agent confirmed." },
         client: { type: "string", description: "The agent/client name, for the log." },
       },
@@ -121,17 +121,25 @@ async function shareOnce(input, context, samples, verticals, fromChannel) {
   }
 
   const ofType = samples.filter((s) => s.vertical === leadType);
-  const wanted = (input?.sample_names ?? []).map((n) => String(n).trim().toLowerCase()).filter(Boolean);
-  const picked = wanted.length ? ofType.filter((s) => wanted.includes(s.name.toLowerCase())) : ofType;
-  const refused = wanted.filter((n) => !ofType.some((s) => s.name.toLowerCase() === n));
-  if (!picked.length) {
+  const wanted = String(input?.sample_name ?? input?.sample_names?.[0] ?? "").trim().toLowerCase();
+  const picked = wanted ? ofType.filter((s) => s.name.toLowerCase() === wanted) : ofType;
+  if (wanted && !picked.length) {
+    return { content: `"${input.sample_name ?? wanted}" isn't a ${leadType} sample. Only ${leadType} samples can be shared here: ${ofType.map((s) => s.name).join(", ")}.`, isError: true };
+  }
+  if (!picked.length) return { content: `There are no ${leadType} samples in the library yet. The team will follow up.`, isError: true };
+  if (picked.length > 1) {
     return {
-      content: `No ${leadType} samples match that request${refused.length ? ` (${refused.join(", ")} isn't a ${leadType} sample)` : ""}. Only ${leadType} samples can be shared here.`,
+      content: JSON.stringify({
+        needs_confirmation: true,
+        lead_type: leadType,
+        options: picked.map((s) => s.name),
+        instruction: "One sample per agent. Ask the agent which of these lead types they're running, then share that one.",
+      }),
       isError: true,
     };
   }
 
-  const chosen = picked.slice(0, 10);
+  const chosen = picked;
   recordShare(channel.id, { samples: chosen.map((s) => s.name), leadType, by: context.requester });
   context.client.shared = true;
   const links = chosen.map((s) => ({ sample: s.name, url: createPreviewLink(s, { requestedBy: context.requester, client: input?.client ?? `#${channel.name}` }).url }));
@@ -139,7 +147,6 @@ async function shareOnce(input, context, samples, verticals, fromChannel) {
     content: JSON.stringify({
       lead_type: leadType,
       links,
-      ...(refused.length && { not_shared: refused, reason: `not ${leadType} samples` }),
       note: `Each link gives ${previewLength()} of viewing once the viewer presses Watch; unopened links expire in ${config.unopenedLinkDays} days. This is the one-time share for this channel.`,
     }),
     isError: false,
@@ -164,10 +171,22 @@ export async function runSampleTool(name, input, context = {}) {
     }
 
     if (name === "create_sample_preview_links") {
-      const wanted = (input?.sample_names ?? []).map((n) => String(n).trim().toLowerCase());
-      const found = samples.filter((s) => wanted.includes(s.name.toLowerCase()));
-      const missing = wanted.filter((n) => !found.some((s) => s.name.toLowerCase() === n));
-      const links = found.map((s) => ({
+      // One sample per agent.
+      const names = [input?.sample_name, ...(input?.sample_names ?? [])].map((n) => String(n ?? "").trim()).filter(Boolean);
+      const unique = [...new Set(names.map((n) => n.toLowerCase()))];
+      if (unique.length > 1) {
+        return {
+          content: JSON.stringify({
+            needs_confirmation: true,
+            options: names,
+            instruction: "One sample per agent. Ask which lead type they're running, then share only that one.",
+          }),
+          isError: true,
+        };
+      }
+      const found = samples.filter((s) => s.name.toLowerCase() === unique[0]);
+      const missing = found.length ? [] : names;
+      const links = found.slice(0, 1).map((s) => ({
         sample: s.name,
         lead_type: s.vertical,
         url: createPreviewLink(s, { requestedBy: context.requester, client: input?.client }).url,

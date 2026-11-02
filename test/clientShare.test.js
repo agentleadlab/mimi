@@ -57,25 +57,38 @@ function fakeChannel(id, name, history = []) {
 }
 const ctx = (channel) => ({ requester: "Agent Mia", client: { channel, botId: "bot", shared: false } });
 
-test("shares only the channel's lead type, once", async () => {
+test("one sample per agent: asks which lead type, shares once, only the channel's lead type", async () => {
   const channel = fakeChannel("c1", "mia-hilligoss-trucker");
+  const ask = await tools.runSampleTool("create_sample_preview_links", {}, ctx(channel));
+  assert.equal(ask.isError, true);
+  assert.deepEqual(JSON.parse(ask.content).options, ["Trucker A", "Trucker B"]);
+
+  const wrong = await tools.runSampleTool("create_sample_preview_links", { sample_name: "Vet A" }, ctx(channel));
+  assert.match(wrong.content, /isn't a Truckers sample/);
+
   const c = ctx(channel);
-  const r = await tools.runSampleTool("create_sample_preview_links", { sample_names: ["Trucker A", "Vet A"] }, c);
+  const r = await tools.runSampleTool("create_sample_preview_links", { sample_name: "Trucker A" }, c);
   const out = JSON.parse(r.content);
   assert.equal(r.isError, false);
-  assert.equal(out.lead_type, "Truckers");
   assert.deepEqual(out.links.map((l) => l.sample), ["Trucker A"]);
-  assert.deepEqual(out.not_shared, ["vet a"]);
   assert.equal(c.client.shared, true);
   share.setShareMessage("c1", "https://discord.com/channels/1/c1/99");
 
-  const again = await tools.runSampleTool("create_sample_preview_links", {}, ctx(channel));
+  const again = await tools.runSampleTool("create_sample_preview_links", { sample_name: "Trucker B" }, ctx(channel));
   assert.equal(again.isError, true);
   assert.equal(JSON.parse(again.content).message_link, "https://discord.com/channels/1/c1/99");
 });
 
+test("team requests: one sample per agent", async () => {
+  const many = await tools.runSampleTool("create_sample_preview_links", { sample_names: ["Vet A", "Trucker A"], client: "ReLanda" }, { requester: "Tre" });
+  assert.equal(many.isError, true);
+  assert.equal(JSON.parse(many.content).needs_confirmation, true);
+  const one = JSON.parse((await tools.runSampleTool("create_sample_preview_links", { sample_name: "Vet A", client: "ReLanda" }, { requester: "Tre" })).content);
+  assert.equal(one.links.length, 1);
+});
+
 test("a vet request in a trucker channel gets nothing", async () => {
-  const r = await tools.runSampleTool("create_sample_preview_links", { sample_names: ["Vet A"] }, ctx(fakeChannel("c2", "sam-jones-trucker")));
+  const r = await tools.runSampleTool("create_sample_preview_links", { sample_name: "Vet A" }, ctx(fakeChannel("c2", "sam-jones-trucker")));
   assert.equal(r.isError, true);
   assert.match(r.content, /Only Truckers samples/);
 });

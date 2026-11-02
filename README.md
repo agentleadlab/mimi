@@ -24,7 +24,7 @@ Slash commands:
 | `/image prompt [size] [options] [image]` | Generate images with Gemini (needs `GEMINI_API_KEY`) |
 | `/refresh hook [vertical] [notes] [versions]` | Refresh a tired hook: same idea, new opening, detail and emotion |
 | `/cpl [name] [level] [range]` | Live Meta numbers: spend, leads, CPL (needs `META_ACCESS_TOKEN`) |
-| `/sample lead_type [sample] [client]` | Time-limited ad sample links to send a client (private reply) |
+| `/sample lead_type [sample] [client]` | The ad sample link for an agent's lead type, one sample per agent (private reply) |
 | `/samples list \| refresh \| log` | Browse the library, re-read the sheet, see who opened what |
 | `/samples add name lead_type loom [tags] [campaign]` | Add a sample to the sheet (Manage Server only; needs the sheet script) |
 
@@ -170,7 +170,7 @@ Then just ask, e.g. *"Mimi, bulk create listing posts from the Just Listed templ
 Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, so clients can watch them without ever getting the Loom link itself.
 
 - The library lives in a Google Sheet with the columns **Sample Name, Vertical, Campaign/Context, Date Added, Loom Link, Tags**. Share it as *Anyone with the link can view*, and put its link in `SAMPLES_SHEET_URL`. The sheet contains the Loom links, so don't share the sheet link itself. Mimi re-reads the sheet every 5 minutes, or right away with `/samples refresh`.
-- A teammate asks in chat (*"Mimi, I need a vet ad sample for John"*) or uses `/sample`, and gets one link per matching sample to send to the client.
+- **One sample per agent.** Each sample is one lead type product (e.g. Text-Verified VET PLUS vs VET Standard). A teammate asks in chat (*"Mimi, I need the VET PLUS sample for John"*) or uses `/sample`, and gets the one link for that lead type. If the request could match several (*"a vet sample"*), Mimi asks which lead type the agent is running instead of sending them all. The same applies to Rook and client channels.
 - **Rook** (the team's request bot) can ask too: when Rook @mentions Mimi, she answers with the sample links. Bots only get ad samples, only on a direct mention, and at most 6 bot requests per channel per 10 minutes, so two bots can't loop.
 - In Rook's requests channel (`BOT_WATCH_CHANNEL_IDS`), Mimi reads every Rook message, even ones tagging someone else. When a client asks to see the ads (*"Am I able to see the advertisement for the lead?"*), she replies with a one-line answer Rook can relay plus that lead type's sample links. She never repeats phone numbers. Anything not about ads gets no reply.
 - The client sees a branded **Watch sample** page. Their 2 min 30 sec start when they press Watch, so link previews in texts and emails don't use up the time. When time's up the page locks and asks them to contact their rep. Links nobody opens expire after 7 days.

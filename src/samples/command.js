@@ -68,11 +68,11 @@ async function autocompleteSamples(interaction) {
 export const sampleCommand = {
   data: new SlashCommandBuilder()
     .setName("sample")
-    .setDescription("Get time-limited preview links for ad samples to send a client")
+    .setDescription("Get the ad sample link for an agent's lead type (one sample per agent)")
     .addStringOption((o) =>
       o.setName("lead_type").setDescription("Lead type, e.g. Veterans, IUL, Truckers").setRequired(true).setAutocomplete(true),
     )
-    .addStringOption((o) => o.setName("sample").setDescription("A specific sample (default: all for that lead type)").setAutocomplete(true))
+    .addStringOption((o) => o.setName("sample").setDescription("The exact lead type they run (needed if there are several)").setAutocomplete(true))
     .addStringOption((o) => o.setName("client").setDescription("Who it's for (shows in the log)")),
 
   autocomplete: autocompleteSamples,
@@ -95,7 +95,18 @@ export const sampleCommand = {
     if (!matches.length) {
       return say(interaction, `No samples found for **${leadType}**.\nLead types: ${verticalsOf(samples).join(" · ")}`);
     }
-    return interaction.editReply(linksMessage(matches.slice(0, 10), { requestedBy: who(interaction), client }));
+    // One sample per agent: if several fit, ask for the exact lead type.
+    if (matches.length > 1) {
+      return say(
+        interaction,
+        `**One sample per agent.** Which lead type is ${client ? `**${client}**` : "the agent"} running?\n${matches
+          .slice(0, 15)
+          .map((s) => `• ${s.name}`)
+          .join("\n")}\nRun \`/sample\` again and pick it in the **sample** option.`,
+        COLORS.info,
+      );
+    }
+    return interaction.editReply(linksMessage(matches.slice(0, 1), { requestedBy: who(interaction), client }));
   },
 };
 
@@ -112,13 +123,24 @@ async function clientSample(interaction) {
   };
   const result = await runSampleTool(
     "create_sample_preview_links",
-    { confirmed_lead_type: interaction.options.getString("lead_type") ?? undefined, client: `#${interaction.channel.name}` },
+    {
+      confirmed_lead_type: interaction.options.getString("lead_type") ?? undefined,
+      sample_name: interaction.options.getString("sample") ?? undefined,
+      client: `#${interaction.channel.name}`,
+    },
     context,
   );
   let data = null;
   try {
     data = JSON.parse(result.content);
   } catch {}
+  if (data?.needs_confirmation) {
+    return say(
+      interaction,
+      `**One sample per agent.** Which ${data.lead_type ?? ""} lead type are you running?\n${data.options.map((o) => `• ${o}`).join("\n")}\nRun \`/sample\` again and pick it in the **sample** option.`,
+      COLORS.info,
+    );
+  }
   if (data?.already_shared) {
     const where = data.message_link?.startsWith("http") ? `: ${data.message_link}` : " (scroll up)";
     return say(interaction, `Samples were already shared in this channel${where}. Each channel gets them once.`, COLORS.info);
