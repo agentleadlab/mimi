@@ -39,6 +39,8 @@ test("lead type comes from the channel name", () => {
   assert.equal(lt("eve-vet-widows"), "VET Widows");
   assert.equal(lt("🔥mia-hilligoss-trucker"), "Truckers");
   assert.equal(lt("mia-hilligoss"), null);
+  assert.equal(share.leadTypeFromChannel("john-doe-mortgage-protection", ["MTG", "Veterans"]), "MTG");
+  assert.equal(share.leadTypeFromChannel("john-doe-mp", ["MTG", "Veterans"]), "MTG");
   assert.equal(lt("general"), null);
 });
 

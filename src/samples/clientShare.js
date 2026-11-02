@@ -27,9 +27,10 @@ const ALIASES = {
   "vet-widows": "widow",
   widow: "widow",
   widows: "widow",
-  mp: "mortgage",
-  mortgage: "mortgage",
-  "mortgage-protection": "mortgage",
+  mp: ["mortgage", "mtg"],
+  mtg: ["mortgage", "mtg"],
+  mortgage: ["mortgage", "mtg"],
+  "mortgage-protection": ["mortgage", "mtg"],
   fe: "final expense",
   "final-expense": "final expense",
   iul: "iul",
@@ -48,8 +49,8 @@ export function leadTypeFromChannel(channelName, verticals) {
   for (const v of verticals) {
     const vs = slug(v);
     const forms = new Set([vs, vs.replace(/s$/, ""), `${vs.replace(/s$/, "")}s`]);
-    for (const [alias, word] of Object.entries(ALIASES)) {
-      if (v.toLowerCase().includes(word)) forms.add(alias);
+    for (const [alias, words] of Object.entries(ALIASES)) {
+      if ([words].flat().some((w) => v.toLowerCase().includes(w))) forms.add(alias);
     }
     for (const f of forms) {
       if (f && (name === f || name.endsWith(`-${f}`))) candidates.push({ vertical: v, len: f.length });
