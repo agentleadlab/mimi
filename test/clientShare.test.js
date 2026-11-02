@@ -79,12 +79,12 @@ test("one sample per agent: asks which lead type, shares once, only the channel'
   assert.equal(JSON.parse(again.content).message_link, "https://discord.com/channels/1/c1/99");
 });
 
-test("team requests: one sample per agent", async () => {
-  const many = await tools.runSampleTool("create_sample_preview_links", { sample_names: ["Vet A", "Trucker A"], client: "ReLanda" }, { requester: "Tre" });
-  assert.equal(many.isError, true);
-  assert.equal(JSON.parse(many.content).needs_confirmation, true);
-  const one = JSON.parse((await tools.runSampleTool("create_sample_preview_links", { sample_name: "Vet A", client: "ReLanda" }, { requester: "Tre" })).content);
-  assert.equal(one.links.length, 1);
+test("team and Rook requests: one link per requested lead type; missing ones reported", async () => {
+  const r = JSON.parse(
+    (await tools.runSampleTool("create_sample_preview_links", { sample_names: ["Vet A", "Trucker A", "Widow Plus", "vet a"], client: "Aiden Adair" }, { requester: "Rook" })).content,
+  );
+  assert.deepEqual(r.links.map((l) => l.sample), ["Vet A", "Trucker A"]);
+  assert.deepEqual(r.missing, ["widow plus"]);
 });
 
 test("a vet request in a trucker channel gets nothing", async () => {

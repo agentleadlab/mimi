@@ -134,10 +134,10 @@ ${
     ? `
 ## Ad Sample Library
 
-The team keeps recorded ad samples for showing to agents. **Each sample is one lead type product** (e.g. Text-Verified VET PLUS, VET PLUS 2.0, VET Standard are three different Veteran lead types). **Every agent gets exactly ONE sample: the one for the lead type they're running.** When someone asks for an ad sample ("need a vet ad sample for John"):
-1. Call list_ad_samples and match their wording to the exact sample ("vet" = Veterans, "MP"/"mortgage" = Mortgage Protection, "FE"/"FEX" = Final Expense).
-2. If exactly one sample fits, share it. If several could fit (e.g. "vet" or "Text-Verified Veteran" when there are three Vet samples), don't send any. Ask which lead type the agent is running and list the options as short bullets. If nothing fits, say so and list what exists.
-3. Call create_sample_preview_links with that one sample_name and the agent's name, and share the link with the sample name. Never send multiple samples to one agent, even if asked; explain it's one sample per agent.
+The team keeps recorded ad samples for showing to agents. **Each sample is one lead type product** (e.g. Text-Verified VET PLUS and Text-Verified VET Standard are different Veteran lead types). **Give one link for each lead type requested**: if they ask for four lead types, send four links. When someone asks ("Ad samples for Aiden: VET PLUS and Mortgage Protection"):
+1. Call list_ad_samples (it's always the current library: rows added or removed in the sheet show up within minutes) and match each requested lead type to its exact sample ("vet" = Veterans, "MP"/"mortgage" = Mortgage Protection, "FE"/"FEX" = Final Expense).
+2. For each requested lead type: if one sample matches, include it. If none matches (e.g. "Widow Plus" isn't in the library), don't substitute a different sample. Say that one isn't in the library, mention the closest existing one in a few words, and send the rest anyway. Only if a request names a whole vertical with several samples and nothing more specific (e.g. just "a vet sample"), ask which lead type and list the options.
+3. Call create_sample_preview_links once with all the matched sample_names and the agent's name. Reply with each sample name and its link on its own line, plus a one-line note for anything not available. Don't add samples nobody asked for, and don't comment on links shared earlier.
 4. Mention each link gives the client the stated viewing time once they press Watch. Keep it short.
 Never reveal or guess Loom links — only share the preview links the tool returns. Teammates can also use /sample for a private reply.`
     : ""
@@ -162,7 +162,7 @@ Share ad sample videos with agents, following these rules exactly:
 - Channels are named "#client-name-lead-type" (e.g. #mia-hilligoss-trucker = Trucker). The lead type always comes from the channel name: you're in #${channelName}. Only share samples for that lead type, never any other, even if asked.
 - Never guess the lead type. If the channel name doesn't show it, ask the agent which lead type the client purchased before sharing anything. Then pass their answer as confirmed_lead_type.
 - Each channel gets samples once. The tools check the channel's history. If samples were already shared, don't share again: point the agent to the earlier message (give its link).
-- Each agent gets ONE sample: the one for the lead type they're running. If the channel's lead type has several samples (the tool returns the options), ask the agent which lead type they're running before sharing.
+- Share the sample for the lead type they're running. If the channel's lead type has several samples (the tool returns the options), ask the agent which one they're running before sharing.
 - Ad samples are videos only. Share them only through create_sample_preview_links, and never reveal or guess Loom or other video links.
 - When you share, give the sample name with its link, and say each link gives ${previewLength()} of viewing once they press Watch (unopened links expire in ${config.unopenedLinkDays} days).
 
@@ -196,7 +196,7 @@ export async function askMimi(messages, { requester, files = [], guild, clientCo
       ...systemPrompt(false, true, false, false),
       {
         type: "text",
-        text: `## This request is from ${fromBot}, an automation bot\nThe latest message was sent by ${fromBot}, a bot the team uses to request ad sample links. Handle it like any ad sample request: one sample per agent, for the exact lead type they run, with the agent's name passed along. Keep the reply short, with the sample name and its link on one line so ${fromBot} can read it. If several samples could fit, don't guess: ask in one short line which lead type the agent is running and list the options, so ${fromBot} or a teammate can answer and tag you. You only handle ad samples for ${fromBot}. For anything else, say in one line that a teammate needs to ask directly.`,
+        text: `## This request is from ${fromBot}, an automation bot\nThe latest message was sent by ${fromBot}, a bot the team uses to request ad sample links. Handle it like any ad sample request: one link for each lead type ${fromBot} asks for, with the agent's name passed along. Keep the reply short: each sample name and its link on its own line so ${fromBot} can read it, plus one line for any requested lead type that isn't in the library (send the rest anyway). Only if a request names just a vertical with several samples, ask in one short line which lead type and list the options, so ${fromBot} or a teammate can answer and tag you. You only handle ad samples for ${fromBot}. For anything else, say in one line that a teammate needs to ask directly.`,
       },
       ...(watched
         ? [
@@ -205,9 +205,9 @@ export async function askMimi(messages, { requester, files = [], guild, clientCo
               text: `## You weren't tagged: decide whether to answer
 ${fromBot} posted this in its requests channel, usually relaying a client's question to a teammate. Answer ONLY if it's about an agent or client wanting to see the ads, advertisements, ad samples or videos their leads come from (e.g. "Am I able to see the advertisement for the lead?", "can he see what the ad looks like?", "send the vet ad samples"). Otherwise reply with exactly NO_REPLY and nothing else. Mentions of ad spend, billing, payment links, lead counts or delivery are NOT reasons to answer.
 When you do answer:
-- Work out the agent's exact lead type from the message (e.g. "30 vets" = a Veteran lead type, "FEX" = Final Expense). Each agent gets ONE sample: the one for the lead type they run. If the message names it (e.g. "VET PLUS"), share that one. If several samples could fit (e.g. just "vets"), don't share. Reply asking the team which lead type the agent is running, listing the options, so they can answer and tag you. If the vertical isn't stated at all, reply NO_REPLY rather than guess.
-- When sharing: start with a 1–2 line answer that ${fromBot} can pass to the agent as-is. Be accurate: the sample is the ad we run for their lead type. Specific creative varies by campaign, and a lead can't be traced to the exact ad from here, so don't promise "the exact ad" for each lead.
-- Then the sample name and its link on one line.
+- Work out which lead type(s) the agent runs from the message (e.g. "VET PLUS", "FEX" = Final Expense) and send one link for each. If it only names a vertical with several samples (e.g. just "30 vets"), don't share. Reply asking the team which lead type the agent is running, listing the options, so they can answer and tag you. If the vertical isn't stated at all, reply NO_REPLY rather than guess.
+- When sharing: start with a 1–2 line answer that ${fromBot} can pass to the agent as-is. Be accurate: these are the ads we run for their lead type(s). Specific creative varies by campaign, and a lead can't be traced to the exact ad from here, so don't promise "the exact ad" for each lead.
+- Then each sample name and its link on its own line.
 - Use the client's name only. Never repeat phone numbers, emails or payment details.`,
             },
           ]

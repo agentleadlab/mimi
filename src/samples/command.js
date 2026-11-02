@@ -68,7 +68,7 @@ async function autocompleteSamples(interaction) {
 export const sampleCommand = {
   data: new SlashCommandBuilder()
     .setName("sample")
-    .setDescription("Get the ad sample link for an agent's lead type (one sample per agent)")
+    .setDescription("Get the ad sample link for a lead type")
     .addStringOption((o) =>
       o.setName("lead_type").setDescription("Lead type, e.g. Veterans, IUL, Truckers").setRequired(true).setAutocomplete(true),
     )
@@ -95,11 +95,11 @@ export const sampleCommand = {
     if (!matches.length) {
       return say(interaction, `No samples found for **${leadType}**.\nLead types: ${verticalsOf(samples).join(" · ")}`);
     }
-    // One sample per agent: if several fit, ask for the exact lead type.
+    // /sample gives one link at a time: if several fit, ask for the exact lead type.
     if (matches.length > 1) {
       return say(
         interaction,
-        `**One sample per agent.** Which lead type is ${client ? `**${client}**` : "the agent"} running?\n${matches
+        `**Which lead type?** ${client ? `**${client}**` : "The agent"} could be on any of these:\n${matches
           .slice(0, 15)
           .map((s) => `• ${s.name}`)
           .join("\n")}\nRun \`/sample\` again and pick it in the **sample** option.`,
@@ -137,7 +137,7 @@ async function clientSample(interaction) {
   if (data?.needs_confirmation) {
     return say(
       interaction,
-      `**One sample per agent.** Which ${data.lead_type ?? ""} lead type are you running?\n${data.options.map((o) => `• ${o}`).join("\n")}\nRun \`/sample\` again and pick it in the **sample** option.`,
+      `**Which ${data.lead_type ?? ""} lead type are you running?**\n${data.options.map((o) => `• ${o}`).join("\n")}\nRun \`/sample\` again and pick it in the **sample** option.`,
       COLORS.info,
     );
   }

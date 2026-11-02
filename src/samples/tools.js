@@ -13,15 +13,15 @@ export const sampleTools = [
   {
     name: "create_sample_preview_links",
     description:
-      `Create ONE time-limited preview link: the single ad sample matching the lead type this agent runs (${previewLength()} of viewing after they press Watch). ` +
-      "One sample per agent. Only call this once you know their exact lead type; if more than one sample could fit, ask which lead type they're running instead.",
+      `Create time-limited preview links (${previewLength()} of viewing after the viewer presses Watch): one link for each lead type requested. ` +
+      "Pass the exact sample names from list_ad_samples, one per requested lead type. Don't add samples that weren't asked for.",
     input_schema: {
       type: "object",
       properties: {
-        sample_name: { type: "string", description: "Exact sample name from list_ad_samples." },
-        client: { type: "string", description: "The agent/client the link is for." },
+        sample_names: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 10, description: "Exact sample names, one per requested lead type." },
+        client: { type: "string", description: "The agent/client the links are for." },
       },
-      required: ["sample_name"],
+      required: ["sample_names"],
     },
   },
 ];
@@ -38,7 +38,7 @@ export const clientSampleTools = [
   {
     name: "create_sample_preview_links",
     description:
-      `Share this agent's ONE ad sample video as a time-limited preview link (${previewLength()} of viewing after the viewer presses Watch). One sample per agent: if the channel's lead type has several samples and you don't know which one they run, this returns the options to ask about. ` +
+      `Share the ad sample video for this channel's lead type as a time-limited preview link (${previewLength()} of viewing after the viewer presses Watch). If the channel's lead type has several samples and you don't know which one the agent runs, this returns the options to ask about. ` +
       "The lead type always comes from the channel name; you can't share other lead types. Each channel gets samples only once: if they were already shared, this returns the earlier message to point to. " +
       "Only pass confirmed_lead_type when the channel name doesn't show the lead type AND the agent has told you which lead type the client purchased.",
     input_schema: {
@@ -133,7 +133,7 @@ async function shareOnce(input, context, samples, verticals, fromChannel) {
         needs_confirmation: true,
         lead_type: leadType,
         options: picked.map((s) => s.name),
-        instruction: "One sample per agent. Ask the agent which of these lead types they're running, then share that one.",
+        instruction: "Ask the agent which of these lead types they're running, then share that one.",
       }),
       isError: true,
     };
@@ -171,22 +171,12 @@ export async function runSampleTool(name, input, context = {}) {
     }
 
     if (name === "create_sample_preview_links") {
-      // One sample per agent.
+      // One link per requested lead type.
       const names = [input?.sample_name, ...(input?.sample_names ?? [])].map((n) => String(n ?? "").trim()).filter(Boolean);
-      const unique = [...new Set(names.map((n) => n.toLowerCase()))];
-      if (unique.length > 1) {
-        return {
-          content: JSON.stringify({
-            needs_confirmation: true,
-            options: names,
-            instruction: "One sample per agent. Ask which lead type they're running, then share only that one.",
-          }),
-          isError: true,
-        };
-      }
-      const found = samples.filter((s) => s.name.toLowerCase() === unique[0]);
-      const missing = found.length ? [] : names;
-      const links = found.slice(0, 1).map((s) => ({
+      const unique = [...new Set(names.map((n) => n.toLowerCase()))].slice(0, 10);
+      const found = unique.map((n) => samples.find((s) => s.name.toLowerCase() === n)).filter(Boolean);
+      const missing = unique.filter((n) => !found.some((s) => s.name.toLowerCase() === n));
+      const links = found.map((s) => ({
         sample: s.name,
         lead_type: s.vertical,
         url: createPreviewLink(s, { requestedBy: context.requester, client: input?.client }).url,
