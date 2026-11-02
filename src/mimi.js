@@ -187,8 +187,19 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild, clientContext, progress } = {}) {
+export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot } = {}) {
   if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext, progress });
+  if (fromBot) {
+    // Requests from automation bots (e.g. Rook): ad samples only.
+    const system = [
+      ...systemPrompt(false, true, false, false),
+      {
+        type: "text",
+        text: `## This request is from ${fromBot}, an automation bot\nThe latest message was sent by ${fromBot}, a bot the team uses to request ad sample links. Handle it like any ad sample request: match the lead type and sample, create the preview links, and pass along the client's name if given. Keep the reply short, with each sample name and its link on its own line so ${fromBot} can read it. You only handle ad samples for ${fromBot}. For anything else, say in one line that a teammate needs to ask directly. Don't ask ${fromBot} questions or invite it to reply. If the request is unclear, make the best match and say what you assumed.`,
+      },
+    ];
+    return runLoop(messages, { system, tools: samplesConfigured() ? sampleTools : [], requester, files, progress });
+  }
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();

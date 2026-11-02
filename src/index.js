@@ -1,5 +1,5 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
-import { canvaConfigured, config, isClientChannel, missingCanvaVars, missingRequired } from "./config.js";
+import { canvaConfigured, config, isAllowedBot, isClientChannel, missingCanvaVars, missingRequired } from "./config.js";
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
@@ -66,8 +66,35 @@ function botRoleId(message) {
 
 const NAME_PATTERN = /\bmimi\b/i;
 
+// Bots like Rook can ask Mimi for ad samples by @mentioning her. A cap per
+// channel keeps two bots from replying to each other in a loop.
+const BOT_WINDOW_MS = 10 * 60 * 1000;
+const BOT_MAX_PER_WINDOW = 6;
+const botReplies = new Map(); // channelId -> timestamps
+
+function botAllowance(channelId) {
+  const now = Date.now();
+  const recent = (botReplies.get(channelId) ?? []).filter((t) => now - t < BOT_WINDOW_MS);
+  if (recent.length >= BOT_MAX_PER_WINDOW) return false;
+  recent.push(now);
+  botReplies.set(channelId, recent);
+  return true;
+}
+
 async function shouldReply(message) {
-  if (message.author.bot) return false;
+  if (message.author.id === client.user.id) return false;
+  if (message.author.bot) {
+    // Only allowed bots, only on a direct @mention of Mimi (or her role), within the loop cap.
+    if (!isAllowedBot(message.author)) return false;
+    const roleId = botRoleId(message);
+    const mentioned = message.mentions.users.has(client.user.id) || (roleId && message.mentions.roles.has(roleId));
+    if (!mentioned) return false;
+    if (!botAllowance(message.channelId)) {
+      console.warn(`Ignoring ${message.author.username} in #${message.channel.name}: too many bot requests in 10 min.`);
+      return false;
+    }
+    return true;
+  }
   if (message.channel.type === ChannelType.DM) return true;
   if (message.mentions.users.has(client.user.id)) return true;
   const roleId = botRoleId(message);
@@ -110,7 +137,14 @@ client.on(Events.MessageCreate, async (message) => {
     const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
     // Slower jobs get a live progress card that turns into the answer.
     progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
-    const reply = await askMimi(claudeMessages, { requester, files, guild: message.guild, clientContext, progress });
+    const reply = await askMimi(claudeMessages, {
+      requester,
+      files,
+      guild: message.guild,
+      clientContext,
+      progress,
+      fromBot: message.author.bot ? message.author.username : undefined,
+    });
     stopTyping();
 
     try {

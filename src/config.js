@@ -82,6 +82,10 @@ export const config = {
   clientGuildIds: list(process.env.CLIENT_GUILD_IDS),
   // The team's own server(s): client mode never applies here, whatever the settings above say.
   teamGuildIds: list(process.env.TEAM_GUILD_IDS ?? "1262142521409142825"),
+  // Other bots Mimi answers (e.g. Rook) when they @mention her: user IDs, or bot names if IDs aren't set.
+  // Bots only get ad sample help.
+  allowedBotIds: list(process.env.ALLOWED_BOT_IDS),
+  allowedBotNames: list(process.env.ALLOWED_BOT_NAMES ?? "Rook").map((n) => n.toLowerCase()),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -124,4 +128,11 @@ export function isClientChannel(channel) {
   if (isClientGuild(channel.guildId)) return true;
   const category = channel.isThread?.() ? channel.parent?.parentId : channel.parentId;
   return Boolean(category) && config.clientCategoryIds.includes(category);
+}
+
+/** A bot Mimi is allowed to answer (e.g. Rook). */
+export function isAllowedBot(user) {
+  if (!user?.bot) return false;
+  if (config.allowedBotIds.includes(user.id)) return true;
+  return [user.username, user.globalName].some((n) => n && config.allowedBotNames.includes(n.toLowerCase()));
 }
