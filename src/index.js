@@ -3,7 +3,7 @@ import { canvaConfigured, config, isAllowedBot, isClientChannel, mentionsAds, mi
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
-import { COLORS, noticeCard, replyMessages, setIdentity } from "./ui.js";
+import { COLORS, noticeCard, parseReply, replyMessages, setIdentity } from "./ui.js";
 import { clientCommandNames, commandsByName } from "./commands.js";
 import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl } from "./install.js";
@@ -112,6 +112,8 @@ async function shouldReply(message) {
   const roleId = botRoleId(message);
   if (roleId && message.mentions.roles.has(roleId)) return true;
   if (config.replyToName && NAME_PATTERN.test(message.content)) return true;
+  // Threads Mimi started (e.g. on a Rook request): teammates can answer her without tagging.
+  if (message.channel.isThread?.() && message.channel.ownerId === client.user.id) return true;
   if (config.autoReplyChannelIds.includes(message.channelId)) return true;
   if (message.reference?.messageId) {
     const ref = await message.fetchReference().catch(() => null);
@@ -133,16 +135,21 @@ client.on(Events.MessageCreate, async (message) => {
   // Watched bot messages (e.g. Rook tagging Tre about a client) may not need an answer:
   // stay quiet (no typing, no progress card) until Mimi decides to reply.
   const watched = isWatchedBotMessage(message);
-  const stopTyping = watched ? () => {} : keepTyping(message.channel);
+  // Answers to Rook go in a thread on its message, keeping its channel clean.
+  const useThread = message.author.bot && Boolean(message.guild) && !message.channel.isThread?.();
+  const stopTyping = watched || useThread ? () => {} : keepTyping(message.channel);
   let progress;
   try {
     const earlier = await message.channel.messages
       .fetch({ limit: config.historyLimit, before: message.id })
       .catch(() => new Map());
-    const entries = [...earlier.values()]
-      .reverse()
-      .concat(message)
-      .map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
+    const history = [...earlier.values()].reverse();
+    // Inside a thread, include the message the thread was started from (e.g. Rook's request).
+    if (message.channel.isThread?.()) {
+      const starter = await message.channel.fetchStarterMessage().catch(() => null);
+      if (starter && !history.some((m) => m.id === starter.id)) history.unshift(starter);
+    }
+    const entries = history.concat(message).map((m) => fromDiscordMessage(m, client.user.id, botRoleId(message)));
 
     const requester = message.member?.displayName ?? message.author.globalName ?? message.author.username;
     const files = [];
@@ -151,7 +158,7 @@ client.on(Events.MessageCreate, async (message) => {
     const claudeMessages = buildClaudeMessages(entries);
     const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
     // Slower jobs get a live progress card that turns into the answer.
-    if (!watched) {
+    if (!watched && !useThread) {
       progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
     }
     const reply = await askMimi(claudeMessages, {
@@ -170,7 +177,9 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     try {
-      const sent = await send(message, replyMessages(reply, { requester, files }), progress);
+      const payloads = replyMessages(reply, { requester, files });
+      const thread = useThread ? await threadFor(message, parseReply(reply).title) : null;
+      const sent = thread ? await sendAll(thread, payloads) : await send(message, payloads, progress);
       if (clientContext?.shared) setShareMessage(message.channel.id, sent.url);
     } catch (err) {
       if (clientContext?.shared) forgetShare(message.channel.id); // nothing reached the channel
@@ -186,6 +195,27 @@ client.on(Events.MessageCreate, async (message) => {
     );
   }
 });
+
+/** The thread on a message (created if needed), or null if Mimi can't make one. */
+async function threadFor(message, title) {
+  if (message.thread) return message.thread;
+  const name = (title || "Ad sample").replace(/[*_`~|#]/g, "").trim().slice(0, 95) || "Ad sample";
+  try {
+    return await message.startThread({ name, autoArchiveDuration: 1440 });
+  } catch (err) {
+    console.warn(`Couldn't start a thread in #${message.channel.name} (${err.message}); replying in the channel.`);
+    return null;
+  }
+}
+
+async function sendAll(channel, payloads) {
+  let first;
+  for (const p of payloads) {
+    const sent = await channel.send(p);
+    first ??= sent;
+  }
+  return first;
+}
 
 // Reply to the message; if Discord refuses (e.g. Mimi lacks Read Message
 // History in that channel), fall back to a plain message so she isn't silent.
