@@ -189,8 +189,25 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot, watched } = {}) {
+export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot, watched, smsRelay } = {}) {
   if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext, progress });
+  if (smsRelay) {
+    // Client SMS thread (e.g. #rook-sms): Rook texts the client anything not starting with "//".
+    const system = [
+      ...systemPrompt(false, true, false, false),
+      {
+        type: "text",
+        text: `## You're in a client SMS thread
+This thread is one client's text conversation, relayed by Rook. **Rook texts the client anything posted here that doesn't start with "//".** Messages from the client show up as "<Client name>: …", and Rook adds notes for the team.
+Your reply must be exactly ONE of these:
+1. **NO_REPLY**: when nothing here is about the client seeing ads, ad videos or ad samples (payments, CRM, leads, scheduling and so on are for the team, not you), or when you already sent them the ads in this thread and nobody is asking again (e.g. Rook echoing your text).
+2. **A text to the client**, starting with "CLIENT:". Use it when the client asked to see the ads or a teammate asked you to send them. Write a short, friendly text in plain words (no markdown, no bold, no headings, no emojis beyond one at most), addressed to the client by first name. Give one link for each lead type they're running or asked about, each as "Sample name: link" on its own line, and say the link plays for ${previewLength()} once they tap Watch. Nothing internal: no team names, no notes, no numbers, no mention of Rook or Mimi.
+3. **An internal note**, starting with "//": for anything the team must decide first, e.g. which lead type when it's unclear, or a requested lead type that isn't in the library. Keep it to one or two lines.
+Work out the lead types from the whole thread (e.g. "vets, widows, MP standard and plus" = VET PLUS, VET Widows, Mortgage Protection Standard, Mortgage Protection Plus). Create the links with create_sample_preview_links, passing the client's name. Never repeat phone numbers.`,
+      },
+    ];
+    return runLoop(messages, { system, tools: samplesConfigured() ? sampleTools : [], requester, files, progress });
+  }
   if (fromBot) {
     // Requests from automation bots (e.g. Rook): ad samples only.
     const system = [

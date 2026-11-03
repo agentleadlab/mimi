@@ -87,8 +87,10 @@ export const config = {
   allowedBotIds: list(process.env.ALLOWED_BOT_IDS),
   allowedBotNames: list(process.env.ALLOWED_BOT_NAMES ?? "Rook").map((n) => n.toLowerCase()),
   // Channels where Mimi reads every message from those bots (no @mention needed) and answers
-  // the ones about seeing ads / ad samples. Default: the team's Rook requests channel.
-  botWatchChannelIds: list(process.env.BOT_WATCH_CHANNEL_IDS ?? "1566836453613240511"),
+  // the ones about seeing ads / ad samples. "*" (default) = every channel and thread she can see.
+  botWatchChannelIds: list(process.env.BOT_WATCH_CHANNEL_IDS ?? "*"),
+  // Channels whose threads Rook relays to clients by SMS (anything not starting with "//" is texted).
+  smsRelayChannelNames: list(process.env.SMS_RELAY_CHANNEL_NAMES ?? "rook-sms").map((n) => n.toLowerCase()),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -143,3 +145,32 @@ export function isAllowedBot(user) {
 // Cheap first pass before asking Claude: does a bot message mention ads or samples at all?
 const AD_WORDS = /\b(ads?|advert(isement)?s?|ad[- ]?samples?|samples?|creatives?|commercials?|videos?|marketing)\b/i;
 export const mentionsAds = (text) => AD_WORDS.test(String(text ?? ""));
+
+/** Is a bot watched in this channel (or the channel a thread belongs to)? */
+export function isWatchedChannel(channel) {
+  const ids = config.botWatchChannelIds;
+  if (ids.includes("*")) return true;
+  return ids.includes(channel?.id) || (channel?.isThread?.() && ids.includes(channel.parentId));
+}
+
+/** A client SMS thread: Rook texts anything posted there that doesn't start with "//". */
+export function isSmsRelay(channel) {
+  const home = channel?.isThread?.() ? channel.parent : channel;
+  const name = String(home?.name ?? "").toLowerCase();
+  return Boolean(name) && config.smsRelayChannelNames.some((n) => name.includes(n));
+}
+
+/**
+ * Turn Mimi's reply into what goes in an SMS thread. "CLIENT:" replies are texted
+ * to the client as plain text; everything else becomes an internal "//" note.
+ */
+export function smsRelayText(reply) {
+  const text = String(reply ?? "").trim();
+  const client = text.match(/^CLIENT:\s*([\s\S]*)$/i);
+  if (client) {
+    // Plain text for SMS: drop markdown headings and bold/italics, keep links and line breaks.
+    return { toClient: true, text: client[1].replace(/^#+\s*/gm, "").replace(/\*\*|__|\*|_(?=\S)/g, "").trim() };
+  }
+  const internal = text.replace(/^\/\/\s*/, "");
+  return { toClient: false, text: internal.split("\n").map((l) => (l.trim() ? `// ${l.replace(/^\/\/\s*/, "")}` : l)).join("\n") };
+}

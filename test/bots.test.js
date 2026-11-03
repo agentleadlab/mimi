@@ -19,7 +19,7 @@ test("ad-related bot messages pass the first filter; others don't", async () => 
   );
   assert.equal(mentionsAds("make me a new one: Text-Verified Veteran ad sample link for ReLanda Price"), true);
   assert.equal(mentionsAds("Payment link for Oct 28 is live, 30 vets delivered"), false);
-  assert.deepEqual(cfg.botWatchChannelIds, ["1566836453613240511"]);
+  assert.deepEqual(cfg.botWatchChannelIds, ["*"]);
 });
 
 test("reports missing thread permissions by name", async () => {
@@ -28,4 +28,18 @@ test("reports missing thread permissions by name", async () => {
   const have = new PermissionsBitField([F.ViewChannel, F.SendMessages, F.EmbedLinks, F.AttachFiles, F.ReadMessageHistory, F.SendMessagesInThreads]);
   const channel = { permissionsFor: () => have };
   assert.deepEqual(missingChannelPermissions(channel, {}), ["CreatePublicThreads"]);
+});
+
+test("SMS threads: client texts go out plain, everything else as // notes", async () => {
+  const { smsRelayText, isSmsRelay } = await import("../src/config.js");
+  const c = smsRelayText("CLIENT: Hi **Aiden**! Here are your ad videos:\nText-Verified VET PLUS: https://x/p/1");
+  assert.equal(c.toClient, true);
+  assert.equal(c.text, "Hi Aiden! Here are your ad videos:\nText-Verified VET PLUS: https://x/p/1");
+  const n = smsRelayText("Which vet lead type is Aiden on?\nVET PLUS or VET Widows");
+  assert.equal(n.toClient, false);
+  assert.equal(n.text, "// Which vet lead type is Aiden on?\n// VET PLUS or VET Widows");
+  assert.equal(smsRelayText("// already internal").text, "// already internal");
+  const thread = { isThread: () => true, parent: { name: "♜ | rook-sms" } };
+  assert.equal(isSmsRelay(thread), true);
+  assert.equal(isSmsRelay({ isThread: () => false, name: "ask-mimi" }), false);
 });

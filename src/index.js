@@ -1,5 +1,16 @@
 import { ActivityType, ChannelType, Client, Events, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
-import { canvaConfigured, config, isAllowedBot, isClientChannel, mentionsAds, missingCanvaVars, missingRequired } from "./config.js";
+import {
+  canvaConfigured,
+  config,
+  isAllowedBot,
+  isClientChannel,
+  isSmsRelay,
+  isWatchedChannel,
+  mentionsAds,
+  missingCanvaVars,
+  missingRequired,
+  smsRelayText,
+} from "./config.js";
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
 import { buildClaudeMessages, fromDiscordMessage } from "./history.js";
@@ -42,7 +53,7 @@ client.once(Events.ClientReady, (c) => {
     .catch((err) => console.error("Couldn't update install settings:", err.message));
 
   // Check the channels where Mimi answers Rook, and say plainly what's missing.
-  for (const id of config.botWatchChannelIds) {
+  for (const id of config.botWatchChannelIds.filter((x) => x !== "*")) {
     const channel = c.channels.cache.get(id);
     if (!channel) {
       console.warn(`Rook channel ${id}: Mimi can't see it (not in that server, or no View Channel).`);
@@ -97,7 +108,7 @@ function isWatchedBotMessage(message) {
   return (
     message.author.bot &&
     isAllowedBot(message.author) &&
-    config.botWatchChannelIds.includes(message.channelId) &&
+    isWatchedChannel(message.channel) &&
     !message.mentions.users.has(client.user.id) &&
     mentionsAds(message.content)
   );
@@ -146,9 +157,11 @@ client.on(Events.MessageCreate, async (message) => {
   // Watched bot messages (e.g. Rook tagging Tre about a client) may not need an answer:
   // stay quiet (no typing, no progress card) until Mimi decides to reply.
   const watched = isWatchedBotMessage(message);
+  // Client SMS threads: Rook texts anything without a leading "//" to the client.
+  const smsRelay = isSmsRelay(message.channel);
   // Answers to Rook go in a thread on its message, keeping its channel clean.
-  const useThread = message.author.bot && Boolean(message.guild) && !message.channel.isThread?.();
-  const stopTyping = watched || useThread ? () => {} : keepTyping(message.channel);
+  const useThread = message.author.bot && Boolean(message.guild) && !message.channel.isThread?.() && !smsRelay;
+  const stopTyping = watched || useThread || smsRelay ? () => {} : keepTyping(message.channel);
   let progress;
   try {
     const earlier = await message.channel.messages
@@ -169,7 +182,7 @@ client.on(Events.MessageCreate, async (message) => {
     const claudeMessages = buildClaudeMessages(entries);
     const imageCount = claudeMessages.flatMap((m) => m.content).filter((b) => b.type === "image").length;
     // Slower jobs get a live progress card that turns into the answer.
-    if (!watched && !useThread) {
+    if (!watched && !useThread && !smsRelay) {
       progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
     }
     const reply = await askMimi(claudeMessages, {
@@ -180,11 +193,23 @@ client.on(Events.MessageCreate, async (message) => {
       progress,
       fromBot: message.author.bot ? message.author.username : undefined,
       watched,
+      smsRelay,
     });
     stopTyping();
     if (watched) {
       if (/^\s*NO_REPLY\s*$/.test(reply)) return; // not about ads: say nothing
       botAllowance(message.channelId); // count it toward the loop cap
+    }
+
+    if (smsRelay) {
+      if (/^\s*NO_REPLY\s*$/.test(reply)) return;
+      // Plain text only: client-facing replies go out as-is, anything else as a "//" note.
+      const { toClient, text } = smsRelayText(reply);
+      for (const chunk of splitText(text, 1900)) {
+        await message.channel.send({ content: toClient ? chunk : chunk.startsWith("//") ? chunk : `// ${chunk}`, allowedMentions: { parse: [] } });
+      }
+      console.log(`SMS thread #${message.channel.name}: ${toClient ? "client-facing reply" : "internal // note"}.`);
+      return;
     }
 
     try {
@@ -210,6 +235,19 @@ client.on(Events.MessageCreate, async (message) => {
     );
   }
 });
+
+function splitText(text, max) {
+  const out = [];
+  let rest = text;
+  while (rest.length > max) {
+    let cut = rest.lastIndexOf("\n", max);
+    if (cut < max / 2) cut = max;
+    out.push(rest.slice(0, cut));
+    rest = rest.slice(cut).replace(/^\n/, "");
+  }
+  if (rest.trim()) out.push(rest);
+  return out;
+}
 
 /** The thread on a message (created if needed), or null if Mimi can't make one. */
 async function threadFor(message, title) {
