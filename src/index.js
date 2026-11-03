@@ -20,6 +20,7 @@ import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl, missingChannelPermissions } from "./install.js";
 import { startServer } from "./server.js";
 import { ProgressCard, startStep } from "./progress.js";
+import { SEND_EMOJI, claimDraft, draftMessage, releaseDraft, saveDraft, sentMessage } from "./smsDrafts.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -33,8 +34,10 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    // For the 📤 "send this draft" reaction in client SMS threads.
+    GatewayIntentBits.GuildMessageReactions,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
 });
 
 client.once(Events.ClientReady, (c) => {
@@ -203,12 +206,19 @@ client.on(Events.MessageCreate, async (message) => {
 
     if (smsRelay) {
       if (/^\s*NO_REPLY\s*$/.test(reply)) return;
-      // Plain text only: client-facing replies go out as-is, anything else as a "//" note.
+      // Mimi never texts the client herself. Client texts become a "//" draft a teammate
+      // sends with 📤 (or copies); everything else is a "//" note.
       const { toClient, text } = smsRelayText(reply);
-      for (const chunk of splitText(text, 1900)) {
-        await message.channel.send({ content: toClient ? chunk : chunk.startsWith("//") ? chunk : `// ${chunk}`, allowedMentions: { parse: [] } });
+      if (toClient) {
+        const draft = await message.channel.send({ content: draftMessage(text), allowedMentions: { parse: [] } });
+        saveDraft(draft.id, { channelId: message.channel.id, text, requestedBy: requester });
+        await draft.react(SEND_EMOJI).catch(() => {});
+      } else {
+        for (const chunk of splitText(text, 1900)) {
+          await message.channel.send({ content: chunk.startsWith("//") ? chunk : `// ${chunk}`, allowedMentions: { parse: [] } });
+        }
       }
-      console.log(`SMS thread #${message.channel.name}: ${toClient ? "client-facing reply" : "internal // note"}.`);
+      console.log(`SMS thread #${message.channel.name}: ${toClient ? "client draft posted" : "internal // note"}.`);
       return;
     }
 
@@ -305,6 +315,32 @@ async function send(message, payloads, progress) {
   for (const p of rest) await message.channel.send(p);
   return sent;
 }
+
+// A teammate reacts 📤 on Mimi's draft in a client SMS thread: post it as-is (without
+// "//"), so Rook texts it to the client. One send per draft; bots can't trigger it.
+client.on(Events.MessageReactionAdd, async (reaction, user) => {
+  try {
+    if (user.bot) return;
+    if (reaction.partial) reaction = await reaction.fetch();
+    if (reaction.emoji.name !== SEND_EMOJI) return;
+    const draftMsg = reaction.message.partial ? await reaction.message.fetch() : reaction.message;
+    if (draftMsg.author?.id !== client.user.id || !isSmsRelay(draftMsg.channel)) return;
+    const member = await draftMsg.guild?.members.fetch(user.id).catch(() => null);
+    const who = member?.displayName ?? user.globalName ?? user.username;
+    const draft = claimDraft(draftMsg.id, who);
+    if (!draft) return; // unknown draft, or already sent
+    try {
+      await draftMsg.channel.send({ content: draft.text, allowedMentions: { parse: [] } });
+    } catch (err) {
+      releaseDraft(draftMsg.id);
+      throw err;
+    }
+    await draftMsg.edit({ content: sentMessage(draft.text, who), allowedMentions: { parse: [] } }).catch(() => {});
+    console.log(`SMS draft sent by ${who} in #${draftMsg.channel.name}.`);
+  } catch (err) {
+    console.error("Sending SMS draft failed:", err);
+  }
+});
 
 // Discord error 10062: the interaction was already answered (e.g. by the old
 // instance during a redeploy) or took over 3 seconds to acknowledge.
