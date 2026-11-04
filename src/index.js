@@ -20,7 +20,7 @@ import { registerCommands } from "./deploy-commands.js";
 import { ensureGuildInstallSettings, inviteUrl, missingChannelPermissions } from "./install.js";
 import { startServer } from "./server.js";
 import { ProgressCard, startStep } from "./progress.js";
-import { SEND_EMOJI, claimDraft, draftMessage, releaseDraft, saveDraft, sentMessage } from "./smsDrafts.js";
+import { SEND_EMOJI, autoSentMessage, claimDraft, draftMessage, isAdSampleDraft, releaseDraft, saveDraft, sentMessage } from "./smsDrafts.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -209,6 +209,14 @@ client.on(Events.MessageCreate, async (message) => {
       // Mimi never texts the client herself. Client texts become a "//" draft a teammate
       // sends with 📤 (or copies); everything else is a "//" note.
       const { toClient, text } = smsRelayText(reply);
+      if (toClient && isAdSampleDraft(text)) {
+        // Ad samples go out on their own (Tre, 4 Nov). A plain post, so Rook texts it,
+        // then a "//" note so the team sees what went.
+        await message.channel.send({ content: text, allowedMentions: { parse: [] } });
+        await message.channel.send({ content: autoSentMessage(text), allowedMentions: { parse: [] } });
+        console.log(`SMS thread #${message.channel.name}: ad sample sent automatically.`);
+        return;
+      }
       if (toClient) {
         const draft = await message.channel.send({ content: draftMessage(text), allowedMentions: { parse: [] } });
         saveDraft(draft.id, { channelId: message.channel.id, text, requestedBy: requester });

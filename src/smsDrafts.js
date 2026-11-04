@@ -1,7 +1,9 @@
 import { getState, setState } from "./store.js";
 
-// Client-text drafts in SMS threads. Mimi never texts a client herself: she posts
-// a "//" draft, and a teammate reacts 📤 to send it as-is (or copies and edits it).
+// Client-text drafts in SMS threads. Mimi posts a "//" draft, and a teammate reacts
+// 📤 to send it as-is (or copies and edits it). The one exception is an ad sample
+// (Tre, 4 Nov: "this needs automated and be automatically sent to a client"): a
+// draft that is just Mimi's sample links goes out on its own (isAdSampleDraft).
 export const SEND_EMOJI = "📤";
 const KEY = "smsDrafts";
 const KEEP_MS = 7 * 24 * 60 * 60 * 1000;
@@ -50,4 +52,20 @@ export function releaseDraft(messageId) {
 export function sentMessage(text, who) {
   const body = text.replace(/```/g, "'''").slice(0, 1700);
   return `// ✅ **Sent to the client by ${who}.**\n\`\`\`\n${body}\n\`\`\``;
+}
+
+// A draft that only hands the client Mimi's ad-sample links — no price, no money,
+// no promise — is safe to send without a person. MIMI_AUTO_SEND_SAMPLES=off turns it off.
+const SAMPLE_LINK = /https?:\/\/\S+\/p\/[\w-]{6,}/;
+const NOT_A_SAMPLE = /\$|\binvoice\b|\bcharge|\brefund|\bpaid\b|\bpayment\b|\bdiscount\b|\bprice\b|%/i;
+export function isAdSampleDraft(text) {
+  if (String(process.env.MIMI_AUTO_SEND_SAMPLES ?? "on").toLowerCase() === "off") return false;
+  const t = String(text ?? "");
+  return SAMPLE_LINK.test(t) && !NOT_A_SAMPLE.test(t);
+}
+
+/** What Mimi leaves in the thread after auto-sending a sample (still "//", so Rook ignores it). */
+export function autoSentMessage(text) {
+  const body = text.replace(/```/g, "'''").slice(0, 1700);
+  return `// ✅ **Ad sample sent to the client automatically.**\n\`\`\`\n${body}\n\`\`\``;
 }

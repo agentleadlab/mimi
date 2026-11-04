@@ -27,3 +27,15 @@ test("drafts never reach the client until a teammate sends them, and only once",
   assert.equal(d.claimDraft("m1", "Kath").sentBy, "Kath");
   assert.equal(d.claimDraft("unknown", "Faith"), null);
 });
+
+test("ad samples go out on their own; anything about money still waits for a person", () => {
+  const sample = "Hi Enmanuel! Here's the ad your veteran leads clicked on:\n\nText-Verified VET PLUS: https://mimi-production-952b.up.railway.app/p/BXp6OIglVjFxCNpr\n\nOnce you tap Watch, it plays for 2 minutes and 30 seconds.";
+  assert.equal(d.isAdSampleDraft(sample), true);
+  assert.ok(d.autoSentMessage(sample).startsWith("// ✅"), "the note must not be texted");
+  assert.equal(d.isAdSampleDraft("Your invoice is $1,350: https://x.example/p/abcdef123"), false);
+  assert.equal(d.isAdSampleDraft("Here's 10% off: https://x.example/p/abcdef123"), false);
+  assert.equal(d.isAdSampleDraft("Thanks Aiden, we'll get those over to you!"), false);
+  process.env.MIMI_AUTO_SEND_SAMPLES = "off";
+  assert.equal(d.isAdSampleDraft(sample), false);
+  delete process.env.MIMI_AUTO_SEND_SAMPLES;
+});
