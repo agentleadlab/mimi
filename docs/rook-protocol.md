@@ -23,10 +23,17 @@ How Rook and Mimi talk about ad samples. Give the "For Rook" section to whoever 
 
 **Links:** each plays for 2 min 30 sec once the viewer taps Watch. Unopened links expire in 7 days. Ask Mimi for a fresh one anytime.
 
+**In client SMS channels** (#rook-sms, channel 1545452742527426601 and their threads): Mimi doesn't reply to you with the labels above. She posts `//` drafts for the team to send to the client, so there's nothing for you to relay. Don't text anything that starts with `//`.
+
 ## How Mimi behaves (for the team)
 
 - She answers Rook's ad sample messages everywhere: tagged, or untagged when they're about ads, include a REF, or there's an open question in that channel. Her replies go in a thread on Rook's message (or in the thread Rook wrote in).
 - Questions stay open for 3 days. The answer is matched by REF, or by the client's name in that channel.
-- In **#rook-sms client threads**, nothing goes to the client automatically: her question and her links are posted as `//` drafts that a teammate sends with 📤.
+- **Client SMS channels:** #rook-sms and channel `1545452742527426601` (the channels themselves and every thread in them). Rook texts the client anything posted there without a leading `//`, so nothing Mimi posts goes to the client automatically:
+  - Her question to the client and her sample links are posted as `//` drafts. A teammate reacts 📤 to send one exactly as written (it's posted once, without `//`, and the draft is marked "Sent by …"), or copies, edits and sends it themselves.
+  - Anything internal (e.g. a lead type that isn't in the library) is a `//` note.
+  - When the client answers her question, she drafts the matching link.
+  - Only people can send drafts; reactions from bots don't count. Drafts stay sendable for 7 days.
+  - More channels can be added with `SMS_RELAY_CHANNEL_IDS` or `SMS_RELAY_CHANNEL_NAMES` in Railway.
 - Loop guard: at most 6 replies to bots per channel every 10 minutes.
 - What's in the library comes from the ad sample sheet, so keep sample names clear (e.g. "Text-Verified VET PLUS", "Text-Verified VET Widows").
