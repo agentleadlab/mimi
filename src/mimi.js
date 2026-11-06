@@ -13,6 +13,8 @@ import { metaConfigured } from "./meta/api.js";
 import { reportToolNames, reportTools, runReportTool } from "./reports/tools.js";
 import { discordToolNames, discordTools, runDiscordTool } from "./discord/tools.js";
 import { brandToolNames, brandTools, runBrandTool } from "./brand/tools.js";
+import { rookToolNames, rookTools, runRookTool } from "./rook/tools.js";
+import { openRequestsIn } from "./rook/requests.js";
 import { metaToolNames, metaTools, runMetaTool } from "./meta/tools.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -189,50 +191,9 @@ const MAX_ROUNDS = 12;
  * a user turn). Runs ad sample, image and Canva tool calls when available. Returns the reply text.
  * Generated images are pushed onto `files` ({ name, buffer, title }) for the caller to attach.
  */
-export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot, watched, smsRelay } = {}) {
+export async function askMimi(messages, { requester, files = [], guild, clientContext, progress, fromBot, watched, smsRelay, rook } = {}) {
   if (clientContext) return runLoop(messages, { system: clientSystemPrompt(clientContext.channel.name), tools: clientSampleTools, requester, files, clientContext, progress });
-  if (smsRelay) {
-    // Client SMS thread (e.g. #rook-sms): Rook texts the client anything not starting with "//".
-    const system = [
-      ...systemPrompt(false, true, false, false),
-      {
-        type: "text",
-        text: `## You're in a client SMS thread
-This thread is one client's text conversation, relayed by Rook. **Rook texts the client anything posted here that doesn't start with "//".** Messages from the client show up as "<Client name>: …", and Rook adds notes for the team.
-Your reply must be exactly ONE of these:
-1. **NO_REPLY**: when nothing here is about the client seeing ads, ad videos or ad samples (payments, CRM, leads, scheduling and so on are for the team, not you), or when you already sent them the ads in this thread and nobody is asking again (e.g. Rook echoing your text).
-2. **A draft text for the client**, starting with "CLIENT:". It's posted as a "//" draft that a teammate reviews and sends, never straight to the client. Use it when the client asked to see the ads or a teammate asked you to send them. Write a short, friendly text in plain words (no markdown, no bold, no headings, no emojis beyond one at most), addressed to the client by first name. Give one link for each lead type they're running or asked about, each as "Sample name: link" on its own line, and say the link plays for ${previewLength()} once they tap Watch. Nothing internal: no team names, no notes, no numbers, no mention of Rook or Mimi.
-3. **An internal note**, starting with "//": for anything the team must decide first, e.g. which lead type when it's unclear, or a requested lead type that isn't in the library. Keep it to one or two lines.
-Work out the lead types from the whole thread (e.g. "vets, widows, MP standard and plus" = VET PLUS, VET Widows, Mortgage Protection Standard, Mortgage Protection Plus). Create the links with create_sample_preview_links, passing the client's name. Never repeat phone numbers.`,
-      },
-    ];
-    return runLoop(messages, { system, tools: samplesConfigured() ? sampleTools : [], requester, files, progress });
-  }
-  if (fromBot) {
-    // Requests from automation bots (e.g. Rook): ad samples only.
-    const system = [
-      ...systemPrompt(false, true, false, false),
-      {
-        type: "text",
-        text: `## This request is from ${fromBot}, an automation bot\nThe latest message was sent by ${fromBot}, a bot the team uses to request ad sample links. Handle it like any ad sample request: one link for each lead type ${fromBot} asks for, with the agent's name passed along. Keep the reply short: each sample name and its link on its own line so ${fromBot} can read it, plus one line for any requested lead type that isn't in the library (send the rest anyway). Only if a request names just a vertical with several samples, ask in one short line which lead type and list the options, so ${fromBot} or a teammate can answer and tag you. You only handle ad samples for ${fromBot}. For anything else, say in one line that a teammate needs to ask directly.`,
-      },
-      ...(watched
-        ? [
-            {
-              type: "text",
-              text: `## You weren't tagged: decide whether to answer
-${fromBot} posted this in its requests channel, usually relaying a client's question to a teammate. Answer ONLY if it's about an agent or client wanting to see the ads, advertisements, ad samples or videos their leads come from (e.g. "Am I able to see the advertisement for the lead?", "can he see what the ad looks like?", "send the vet ad samples"). Otherwise reply with exactly NO_REPLY and nothing else. Mentions of ad spend, billing, payment links, lead counts or delivery are NOT reasons to answer.
-When you do answer:
-- Work out which lead type(s) the agent runs from the message (e.g. "VET PLUS", "FEX" = Final Expense) and send one link for each. If it only names a vertical with several samples (e.g. just "30 vets"), don't share. Reply asking the team which lead type the agent is running, listing the options, so they can answer and tag you. If the vertical isn't stated at all, reply NO_REPLY rather than guess.
-- When sharing: start with a 1–2 line answer that ${fromBot} can pass to the agent as-is. Be accurate: these are the ads we run for their lead type(s). Specific creative varies by campaign, and a lead can't be traced to the exact ad from here, so don't promise "the exact ad" for each lead.
-- Then each sample name and its link on its own line.
-- Use the client's name only. Never repeat phone numbers, emails or payment details.`,
-            },
-          ]
-        : []),
-    ];
-    return runLoop(messages, { system, tools: samplesConfigured() ? sampleTools : [], requester, files, progress });
-  }
+  if (rook) return askForRook(messages, { requester, files, rook, fromBot, watched, smsRelay });
   const canvaOn = canvaReady();
   const samplesOn = samplesConfigured();
   const imagesOn = geminiConfigured();
@@ -249,8 +210,46 @@ When you do answer:
   return runLoop(messages, { system: systemPrompt(canvaOn, samplesOn, imagesOn, metaOn), tools, requester, files, guild, progress });
 }
 
+/**
+ * Ad sample requests from Rook, and anything in a client SMS thread. Mimi answers
+ * only through the rook tools; the caller turns the parts they collect into a
+ * fixed-format message for Rook (or "//" drafts in SMS threads). Her own text is
+ * ignored except NO_REPLY.
+ */
+async function askForRook(messages, { requester, files, rook, fromBot, watched, smsRelay }) {
+  const open = openRequestsIn(rook.homeChannelId);
+  const openText = open.length
+    ? open
+        .map((r) => `- REF ${r.ref}: ${r.client} asked for "${r.requested}". Asked: "${r.question}". Options: ${r.options.join(" | ")}`)
+        .join("\n")
+    : "(none)";
+  const who = fromBot ? `${fromBot} (the team's client-messaging bot)` : "a teammate";
+  const system = [
+    ...systemPrompt(false, true, false, false),
+    {
+      type: "text",
+      text: `## Ad sample requests via Rook
+The latest message is from ${who}${smsRelay ? ", in a client SMS thread (Rook texts the client anything without a leading //; your output is turned into // drafts a teammate approves)" : ""}. Rook relays what agents/clients say (often "Name: message", plus a note for the team) and asks you for ad samples. You talk back to Rook ONLY through the tools below. Your words are turned into a fixed message, so don't write a reply yourself.
+
+For each lead type the agent/client wants to see:
+1. **Clear match** (e.g. "VET PLUS", "Mortgage Protection Standard", "FEX" when there's one Final Expense sample): send_samples_to_rook with the exact sample names.
+2. **Vague** (e.g. "Vets" when there are two Vet samples): ask_rook_to_clarify with a short, friendly question for the client in plain words and the exact sample names as options, e.g. "Which Vet ad would you like to see: VET PLUS or VET Widows?". Never guess, and never send every option instead of asking.
+3. **Not in the library** (e.g. "Widow Plus"): list it in unavailable on send_samples_to_rook, with the closest existing sample, if one is obvious.
+One request can mix these: send what's clear, and clarify or flag the rest, all in the same turn.
+If Rook asks what ad samples exist or what it can offer, use send_catalog_to_rook.
+
+**Answers to your questions.** Open questions in this channel:
+${openText}
+If the message answers one of these (it names the REF, or it's that client choosing, e.g. "Aiden: the widows one" or "they want VET PLUS"), call send_samples_to_rook with the matching option and that ref. If the answer still doesn't pick one, ask again with ask_rook_to_clarify.
+
+Use the agent/client's name as client (never phone numbers). ${watched ? "This message wasn't addressed to you, so if it isn't about seeing ads or ad samples and doesn't answer an open question, call no tools and reply NO_REPLY." : "If the message needs nothing from you (a thank-you, a status update, something that isn't about ad samples), call no tools and reply NO_REPLY."} When you've called the tools, reply DONE.`,
+    },
+  ];
+  return runLoop(messages, { system, tools: rookTools, requester, files, rookCtx: rook });
+}
+
 /** `progress` (optional) is told when tools run and when the answer is being written. */
-async function runLoop(messages, { system, tools, requester, files, guild, clientContext, progress }) {
+async function runLoop(messages, { system, tools, requester, files, guild, clientContext, progress, rookCtx }) {
   const convo = [...messages];
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -282,7 +281,9 @@ async function runLoop(messages, { system, tools, requester, files, guild, clien
           if (!allowed.has(call.name)) {
             return { type: "tool_result", tool_use_id: call.id, content: `${call.name} isn't available here.`, is_error: true };
           }
-          const { content, isError } = brandToolNames.has(call.name)
+          const { content, isError } = rookCtx && rookToolNames.has(call.name)
+            ? await runRookTool(call.name, call.input, { requester, rook: rookCtx })
+            : brandToolNames.has(call.name)
             ? await runBrandTool(call.name, call.input, { requester })
             : discordToolNames.has(call.name)
             ? await runDiscordTool(call.name, call.input, { requester, guild })

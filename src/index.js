@@ -9,7 +9,6 @@ import {
   mentionsAds,
   missingCanvaVars,
   missingRequired,
-  smsRelayText,
 } from "./config.js";
 import { forgetShare, setShareMessage } from "./samples/clientShare.js";
 import { askMimi, describeError } from "./mimi.js";
@@ -21,6 +20,8 @@ import { ensureGuildInstallSettings, inviteUrl, missingChannelPermissions } from
 import { startServer } from "./server.js";
 import { ProgressCard, startStep } from "./progress.js";
 import { SEND_EMOJI, claimDraft, draftMessage, releaseDraft, saveDraft, sentMessage } from "./smsDrafts.js";
+import { openRequestsIn, refsIn } from "./rook/requests.js";
+import { formatForRook, formatForSms } from "./rook/format.js";
 
 const missing = missingRequired();
 if (missing.length) {
@@ -106,14 +107,20 @@ function botAllowance(channelId, { consume = true } = {}) {
   return true;
 }
 
-/** A bot message in a watched channel that might be about ads, without @mentioning Mimi. */
+/** The channel a conversation lives in (a thread's parent), for matching Rook's answers to open questions. */
+const homeChannelId = (channel) => (channel.isThread?.() ? channel.parentId : channel.id);
+
+/**
+ * A bot message, not addressed to Mimi, in a watched channel, that might need her:
+ * it's about ads, names a request ref (AS-12), or there's an open question waiting there.
+ */
 function isWatchedBotMessage(message) {
+  if (!(message.author.bot && isAllowedBot(message.author) && isWatchedChannel(message.channel))) return false;
+  if (message.mentions.users.has(client.user.id)) return false;
   return (
-    message.author.bot &&
-    isAllowedBot(message.author) &&
-    isWatchedChannel(message.channel) &&
-    !message.mentions.users.has(client.user.id) &&
-    mentionsAds(message.content)
+    mentionsAds(message.content) ||
+    refsIn(message.content).length > 0 ||
+    openRequestsIn(homeChannelId(message.channel)).length > 0
   );
 }
 
@@ -126,7 +133,7 @@ async function shouldReply(message) {
     const mentioned = message.mentions.users.has(client.user.id) || (roleId && message.mentions.roles.has(roleId));
     // In watched channels, ad-related bot messages are read without a mention (Mimi decides whether to answer).
     if (!mentioned) return isWatchedBotMessage(message) && botAllowance(message.channelId, { consume: false });
-    if (!botAllowance(message.channelId)) {
+    if (!botAllowance(message.channelId, { consume: false })) {
       console.warn(`Ignoring ${message.author.username} in #${message.channel.name}: too many bot requests in 10 min.`);
       return false;
     }
@@ -164,6 +171,8 @@ client.on(Events.MessageCreate, async (message) => {
   const smsRelay = isSmsRelay(message.channel);
   // Answers to Rook go in a thread on its message, keeping its channel clean.
   const useThread = message.author.bot && Boolean(message.guild) && !message.channel.isThread?.() && !smsRelay;
+  // Rook's requests (and anything in a client SMS thread) are answered in fixed formats.
+  const rook = message.author.bot || smsRelay ? { parts: [], homeChannelId: homeChannelId(message.channel), channelId: message.channel.id } : undefined;
   const stopTyping = watched || useThread || smsRelay ? () => {} : keepTyping(message.channel);
   let progress;
   try {
@@ -197,28 +206,35 @@ client.on(Events.MessageCreate, async (message) => {
       fromBot: message.author.bot ? message.author.username : undefined,
       watched,
       smsRelay,
+      rook,
     });
     stopTyping();
-    if (watched) {
-      if (/^\s*NO_REPLY\s*$/.test(reply)) return; // not about ads: say nothing
-      botAllowance(message.channelId); // count it toward the loop cap
-    }
 
-    if (smsRelay) {
-      if (/^\s*NO_REPLY\s*$/.test(reply)) return;
-      // Mimi never texts the client herself. Client texts become a "//" draft a teammate
-      // sends with 📤 (or copies); everything else is a "//" note.
-      const { toClient, text } = smsRelayText(reply);
-      if (toClient) {
-        const draft = await message.channel.send({ content: draftMessage(text), allowedMentions: { parse: [] } });
-        saveDraft(draft.id, { channelId: message.channel.id, text, requestedBy: requester });
-        await draft.react(SEND_EMOJI).catch(() => {});
-      } else {
-        for (const chunk of splitText(text, 1900)) {
-          await message.channel.send({ content: chunk.startsWith("//") ? chunk : `// ${chunk}`, allowedMentions: { parse: [] } });
+    if (rook) {
+      if (!rook.parts.length) return; // nothing for Mimi to do (NO_REPLY / not about ad samples)
+      botAllowance(message.channelId); // count it toward the loop cap
+      if (smsRelay) {
+        // Mimi never texts the client herself: client texts become "//" drafts a teammate
+        // sends with 📤 (or copies); everything else is a "//" note.
+        const { drafts, notes } = formatForSms(rook.parts);
+        for (const text of drafts) {
+          const draft = await message.channel.send({ content: draftMessage(text), allowedMentions: { parse: [] } });
+          saveDraft(draft.id, { channelId: message.channel.id, text, requestedBy: requester });
+          await draft.react(SEND_EMOJI).catch(() => {});
         }
+        for (const note of notes) await message.channel.send({ content: note, allowedMentions: { parse: [] } });
+        console.log(`SMS thread #${message.channel.name}: ${drafts.length} draft(s), ${notes.length} note(s).`);
+        return;
       }
-      console.log(`SMS thread #${message.channel.name}: ${toClient ? "client draft posted" : "internal // note"}.`);
+      // To Rook: one plain-text message in a fixed format, tagging Rook so it picks it up.
+      const rookId = message.author.bot ? message.author.id : config.allowedBotIds[0];
+      const content = formatForRook(rook.parts, rookId);
+      const client0 = rook.parts[0]?.client ?? "client";
+      const thread = useThread ? await threadFor(message, `Ad samples — ${client0}`) : null;
+      const payload = { content, allowedMentions: { users: rookId ? [rookId] : [] } };
+      if (thread) await thread.send(payload);
+      else await replyTo(message, payload);
+      console.log(`Answered Rook in #${(thread ?? message.channel).name}: ${rook.parts.map((p) => p.type).join(", ")}.`);
       return;
     }
 
@@ -245,19 +261,6 @@ client.on(Events.MessageCreate, async (message) => {
     );
   }
 });
-
-function splitText(text, max) {
-  const out = [];
-  let rest = text;
-  while (rest.length > max) {
-    let cut = rest.lastIndexOf("\n", max);
-    if (cut < max / 2) cut = max;
-    out.push(rest.slice(0, cut));
-    rest = rest.slice(cut).replace(/^\n/, "");
-  }
-  if (rest.trim()) out.push(rest);
-  return out;
-}
 
 /** The thread on a message (created if needed), or null if Mimi can't make one. */
 async function threadFor(message, title) {
@@ -301,7 +304,7 @@ async function sendAll(channel, payloads) {
 // History in that channel), fall back to a plain message so she isn't silent.
 async function replyTo(message, payload) {
   try {
-    return await message.reply({ ...payload, allowedMentions: { repliedUser: false } });
+    return await message.reply({ ...payload, allowedMentions: { repliedUser: false, ...payload.allowedMentions } });
   } catch (err) {
     console.warn(`Reply failed in #${message.channel.name ?? message.channelId} (${err.message}); sending plainly.`);
     return message.channel.send(payload);
