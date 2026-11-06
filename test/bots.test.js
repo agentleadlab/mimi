@@ -42,4 +42,6 @@ test("SMS threads: client texts go out plain, everything else as // notes", asyn
   const thread = { isThread: () => true, parent: { name: "♜ | rook-sms" } };
   assert.equal(isSmsRelay(thread), true);
   assert.equal(isSmsRelay({ isThread: () => false, name: "ask-mimi" }), false);
+  assert.equal(isSmsRelay({ isThread: () => false, id: "1545452742527426601", name: "anything" }), true);
+  assert.equal(isSmsRelay({ isThread: () => true, parentId: "1545452742527426601", parent: { name: "anything" } }), true);
 });

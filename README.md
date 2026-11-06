@@ -91,7 +91,7 @@ All settings live in `.env` (see `.env.example`):
 | `TEAM_GUILD_IDS` | `1262142521409142825` | The team's server(s). Client mode never applies here, even if listed above |
 | `ALLOWED_BOT_NAMES` / `ALLOWED_BOT_IDS` | `Rook` / (unset) | Bots Mimi answers when they @mention her (ad samples only). IDs are safer than names |
 | `BOT_WATCH_CHANNEL_IDS` | `*` (everywhere) | Channels where Mimi reads every message from those bots and answers the ones about seeing ads / ad samples, even untagged |
-| `SMS_RELAY_CHANNEL_NAMES` | `rook-sms` | Channels whose threads Rook texts to clients. There Mimi sends client texts as plain text and everything else as `//` notes |
+| `SMS_RELAY_CHANNEL_NAMES` / `SMS_RELAY_CHANNEL_IDS` | `rook-sms` / `1545452742527426601` | Client SMS channels (and their threads), by name or ID. There Mimi only posts `//` drafts and notes; a teammate sends drafts with 📤 |
 | `TEAM_MENTIONS` | (unset) | Teammates Mimi can tag, `Name=UserID` pairs (e.g. `Jen=123,K2=456,Tre=789`). Others are looked up by name |
 | `MARKETING_CHANNEL_ID` | (unset) | Where she posts announcements. Default: a channel named like "marketing" |
 | `META_EXCLUDE_NAMES` | `MARTIN` | Names left out of Meta numbers (comma-separated) |

@@ -91,6 +91,8 @@ export const config = {
   botWatchChannelIds: list(process.env.BOT_WATCH_CHANNEL_IDS ?? "*"),
   // Channels whose threads Rook relays to clients by SMS (anything not starting with "//" is texted).
   smsRelayChannelNames: list(process.env.SMS_RELAY_CHANNEL_NAMES ?? "rook-sms").map((n) => n.toLowerCase()),
+  // Same rules by channel ID (the channel itself and its threads).
+  smsRelayChannelIds: list(process.env.SMS_RELAY_CHANNEL_IDS ?? "1545452742527426601"),
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),
@@ -156,6 +158,8 @@ export function isWatchedChannel(channel) {
 /** A client SMS thread: Rook texts anything posted there that doesn't start with "//". */
 export function isSmsRelay(channel) {
   const home = channel?.isThread?.() ? channel.parent : channel;
+  const homeId = channel?.isThread?.() ? channel.parentId : channel?.id;
+  if (homeId && config.smsRelayChannelIds.includes(homeId)) return true;
   const name = String(home?.name ?? "").toLowerCase();
   return Boolean(name) && config.smsRelayChannelNames.some((n) => name.includes(n));
 }
