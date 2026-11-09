@@ -242,7 +242,7 @@ If Rook asks what ad samples exist or what it can offer, use send_catalog_to_roo
 ${openText}
 If the message answers one of these (it names the REF, or it's that client choosing, e.g. "Aiden: the widows one" or "they want VET PLUS"), call send_samples_to_rook with the matching option and that ref. If the answer still doesn't pick one, ask again with ask_rook_to_clarify.
 
-Use the agent/client's name as client (never phone numbers). ${watched ? "This message wasn't addressed to you, so if it isn't about seeing ads or ad samples and doesn't answer an open question, call no tools and reply NO_REPLY." : "If the message needs nothing from you (a thank-you, a status update, something that isn't about ad samples), call no tools and reply NO_REPLY."} When you've called the tools, reply DONE.`,
+${fromBot ? "" : "A teammate wrote this. Only use these tools if they're asking you to send this client ad sample videos (e.g. \"send Aiden his ad videos\"). If they want something else (making ads or images, Canva or county designs, copy, numbers, questions), call no tools and reply NO_REPLY: that's handled separately.\n"}Use the agent/client's name as client (never phone numbers). ${watched ? "This message wasn't addressed to you, so if it isn't about seeing ads or ad samples and doesn't answer an open question, call no tools and reply NO_REPLY." : "If the message needs nothing from you (a thank-you, a status update, something that isn't about ad samples), call no tools and reply NO_REPLY."} When you've called the tools, reply DONE.`,
     },
   ];
   return runLoop(messages, { system, tools: rookTools, requester, files, rookCtx: rook });

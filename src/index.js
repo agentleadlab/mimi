@@ -197,7 +197,7 @@ client.on(Events.MessageCreate, async (message) => {
     if (!watched && !useThread && !smsRelay) {
       progress = new ProgressCard({ post: (p) => replyTo(message, p), edit: (m, p) => m.edit(p), requester }, startStep({ imageCount }));
     }
-    const reply = await askMimi(claudeMessages, {
+    let reply = await askMimi(claudeMessages, {
       requester,
       files,
       guild: message.guild,
@@ -208,10 +208,26 @@ client.on(Events.MessageCreate, async (message) => {
       smsRelay,
       rook,
     });
+
+    // A teammate in a client SMS channel asking for something other than client ad samples
+    // (e.g. Canva county ads): do the job normally, and post the answer as "//" notes below.
+    const teammateInSms = smsRelay && !message.author.bot && !rook.parts.length;
+    if (teammateInSms) {
+      console.log(`SMS channel #${message.channel.name}: not a client ad request from ${requester}; answering as // notes.`);
+      reply = await askMimi(claudeMessages, { requester, files, guild: message.guild });
+    }
     stopTyping();
 
+    if (teammateInSms) {
+      await postAsNotes(message.channel, reply, files);
+      return;
+    }
+
     if (rook) {
-      if (!rook.parts.length) return; // nothing for Mimi to do (NO_REPLY / not about ad samples)
+      if (!rook.parts.length) {
+        console.log(`Stayed quiet on ${requester} in #${message.channel.name}: nothing about ad samples to answer.`);
+        return;
+      }
       botAllowance(message.channelId); // count it toward the loop cap
       if (smsRelay) {
         // Mimi never texts the client herself: client texts become "//" drafts a teammate
@@ -261,6 +277,31 @@ client.on(Events.MessageCreate, async (message) => {
     );
   }
 });
+
+/**
+ * In client SMS channels Rook texts anything not starting with "//", so Mimi's answers
+ * for the team go out as plain-text "//" notes (every message starts with "//").
+ */
+async function postAsNotes(channel, text, files = []) {
+  const lines = String(text || "…").replace(/\r/g, "").split("\n");
+  const chunks = [];
+  let cur = "";
+  for (const line of lines) {
+    const next = cur ? `${cur}\n${line}` : line;
+    if (next.length > 1900 && cur) {
+      chunks.push(cur);
+      cur = line;
+    } else cur = next;
+  }
+  if (cur.trim()) chunks.push(cur);
+  for (const [i, chunk] of chunks.entries()) {
+    await channel.send({
+      content: `// ${chunk.replace(/^\/\/\s*/, "")}`,
+      allowedMentions: { parse: [] },
+      ...(i === 0 && files.length && { files: files.map((f) => ({ attachment: f.buffer, name: f.name })) }),
+    });
+  }
+}
 
 /** The thread on a message (created if needed), or null if Mimi can't make one. */
 async function threadFor(message, title) {
