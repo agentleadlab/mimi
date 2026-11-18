@@ -2,6 +2,10 @@
 
 How Rook and Mimi talk about ad samples. Give the "For Rook" section to whoever configures Rook (paste it into Rook's instructions).
 
+There are two ways to get a sample from Mimi:
+- **Discord (this page):** Rook tags Mimi in a channel or thread, and they go back and forth until the lead type is clear.
+- **Web API** (`POST /api/samples`, full spec in [`samples-api.md`](samples-api.md)): for servers and apps, like the client profile's "See an ad example" button. Use it when the lead type is already known exactly. It answers instantly with one link, and the same `request_id` never makes a second sample.
+
 ## For Rook
 
 **Asking Mimi for ad samples**
@@ -23,6 +27,14 @@ How Rook and Mimi talk about ad samples. Give the "For Rook" section to whoever 
 
 **Links:** each plays for 2 min 30 sec once the viewer taps Watch. Unopened links expire in 7 days. Ask Mimi for a fresh one anytime.
 
+**Using the API instead of Discord (if Rook's own server can make web requests):**
+- Call `POST https://mimi-production-952b.up.railway.app/api/samples` with the header `Authorization: Bearer <MIMI_API_TOKEN>` and JSON: `lead_type` (an exact word from `GET /api/lead-types`, e.g. `vet plus`), `client_name`, `client_ref` (an internal id, never a phone or email), `request_id` (unique per request) and `source` (e.g. `rook`).
+- `200` gives `url`, `expires_at` and `watch_seconds`. Send that url to the client.
+- `400 unknown_lead_type` means the word was vague or unknown. The reply lists the valid words. Ask the client which one they want (or ask Mimi in Discord, which handles vague requests), then call again with the exact word and a **new** `request_id`.
+- Reusing a `request_id` returns the same link. Use that for retries, not for a second sample.
+- The key lives only in the hub at Settings › Credentials › MIMI_API_TOKEN. Never put it in Discord, a text or chat.
+- `Test Client` as `client_name` makes a test link that doesn't count as a real sample.
+
 **In client SMS channels** (#rook-sms, channel 1545452742527426601 and their threads): Mimi doesn't reply to you with the labels above. She posts `//` drafts for the team to send to the client, so there's nothing for you to relay. Don't text anything that starts with `//`.
 
 ## How Mimi behaves (for the team)
@@ -37,3 +49,4 @@ How Rook and Mimi talk about ad samples. Give the "For Rook" section to whoever 
   - More channels can be added with `SMS_RELAY_CHANNEL_IDS` or `SMS_RELAY_CHANNEL_NAMES` in Railway.
 - Loop guard: at most 6 replies to bots per channel every 10 minutes.
 - What's in the library comes from the ad sample sheet, so keep sample names clear (e.g. "Text-Verified VET PLUS", "Text-Verified VET Widows").
+- **API and Discord share the same library and links.** The API's lead type words are the sheet's sample names minus "Text-Verified", lowercased (`vet plus`, `vet widows`, `mortgage protection standard`…). Renaming or adding a sample in the sheet updates both within 5 minutes. Every link, from Discord or the API, is logged in the Sample Log tab.
