@@ -93,6 +93,13 @@ export const config = {
   smsRelayChannelNames: list(process.env.SMS_RELAY_CHANNEL_NAMES ?? "rook-sms").map((n) => n.toLowerCase()),
   // Same rules by channel ID (the channel itself and its threads).
   smsRelayChannelIds: list(process.env.SMS_RELAY_CHANNEL_IDS ?? "1545452742527426601"),
+  // Web API for the client profile's "See an ad example" button (POST /api/samples).
+  // Off unless MIMI_API_TOKEN is set; the same value is pasted on the hub's Credentials page.
+  apiToken: process.env.MIMI_API_TOKEN,
+  // Requests for this client name are tests: real links, flagged test, never count as a client's sample.
+  apiTestClientName: (process.env.API_TEST_CLIENT_NAME || "Test Client").trim(),
+  // Optional: post a note here (channel ID) each time a profile sample is created, e.g. #📸│ad-samples.
+  adSamplesChannelId: process.env.AD_SAMPLES_CHANNEL_ID,
   // Where Mimi keeps state that must survive restarts (the Canva login).
   // On Railway, mount a volume here.
   dataDir: process.env.MIMI_DATA_DIR || (fs.existsSync("/data") ? "/data" : "./data"),

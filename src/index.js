@@ -456,6 +456,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 if (config.publicUrl) {
   startServer({
     onCanvaConnected: ({ connectedBy }) => console.log(`Canva connected by ${connectedBy}.`),
+    // Optional note in #📸│ad-samples when the client profile gets a sample through the API.
+    onSampleCreated: async ({ leadType, clientName, requestId, test }) => {
+      if (!config.adSamplesChannelId) return;
+      const channel = await client.channels.fetch(config.adSamplesChannelId).catch(() => null);
+      await channel?.send({
+        content: `🧾 Profile ad sample${test ? " (test)" : ""}: **${leadType}** for ${clientName || "a client"} · ref \`${requestId}\``,
+        allowedMentions: { parse: [] },
+      });
+    },
   });
 } else {
   console.log("No public URL (generate a Railway domain or set PUBLIC_URL) — sample previews and Canva are off.");

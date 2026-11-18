@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { canvaConfigured, config as appConfig } from "./config.js";
 import { CORE_SCOPES, handleCallback, retryWithFewerScopes } from "./canva/auth.js";
 import { servePreview } from "./samples/page.js";
+import { handleApi } from "./api/samplesApi.js";
 
 const LOGO = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "assets", "agent-lead-lab-logo.png"));
 
@@ -21,13 +22,23 @@ function page(res, status, title, message) {
  * Small web server: Canva's OAuth redirect lands here, and Railway can use
  * "/" as a health check. `onCanvaConnected` is called after a successful sign-in.
  */
-export function startServer({ onCanvaConnected } = {}) {
+export function startServer({ onCanvaConnected, onSampleCreated } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
 
     if (url.pathname === "/assets/logo.png") {
       res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" });
       return res.end(LOGO);
+    }
+
+    if (url.pathname.startsWith("/api/")) {
+      return handleApi(req, res, { onSampleCreated }).catch((err) => {
+        console.error("API error:", err);
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "server_error" }));
+        }
+      });
     }
 
     const preview = url.pathname.match(/^\/p\/([A-Za-z0-9_-]{8,64})$/);

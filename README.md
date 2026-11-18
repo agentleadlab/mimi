@@ -88,6 +88,8 @@ All settings live in `.env` (see `.env.example`):
 | `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_IDS` | (unset) | Read-only Meta Ads reporting (see below) |
 | `CLIENT_CATEGORY_IDS` | (unset) | Channel categories holding client channels: Mimi only shares ad samples there (see below) |
 | `CLIENT_GUILD_IDS` | (unset) | Whole servers that are client-only |
+| `MIMI_API_TOKEN` | (unset) | Turns on the samples API for the client profile (see `docs/samples-api.md`). Same value goes on the hub's Credentials page |
+| `API_TEST_CLIENT_NAME` / `AD_SAMPLES_CHANNEL_ID` | `Test Client` / (unset) | API test name (never counts as a real sample); optional channel for a note per API sample |
 | `TEAM_GUILD_IDS` | `1262142521409142825` | The team's server(s). Client mode never applies here, even if listed above |
 | `ALLOWED_BOT_NAMES` / `ALLOWED_BOT_IDS` | `Rook` / (unset) | Bots Mimi answers when they @mention her (ad samples only). IDs are safer than names |
 | `BOT_WATCH_CHANNEL_IDS` | `*` (everywhere) | Channels where Mimi reads every message from those bots and answers the ones about seeing ads / ad samples, even untagged |
@@ -192,6 +194,8 @@ Mimi hands out ad samples (recorded in Loom) as **time-limited preview links**, 
 - If the name doesn't show a lead type, she asks the agent which lead type the client purchased before sharing.
 - Each channel gets samples **once**. She checks her record and the channel history, and points to the earlier message instead of re-sharing.
 - Only the ad-sample tools and `/sample` exist there. No internal knowledge, numbers, Canva, Meta or posting tools, and other slash commands aren't registered. She doesn't discuss internal data and hands anything else to the team.
+
+**Client profile API.** The profile's "See an ad example" button gets its sample from `POST /api/samples` (key in `MIMI_API_TOKEN`). The same `request_id` always returns the same link, lead type words come from the sheet's sample names, and `Test Client` is a test. Full spec: [`docs/samples-api.md`](docs/samples-api.md).
 
 This stops casual forwarding, but it isn't DRM: a determined viewer could still find the Loom video address in the page code during their window.
 
