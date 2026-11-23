@@ -4,9 +4,10 @@ Mimi is the Creative Director AI bot for Agent Lead Lab's Discord. She handles c
 
 ## How to talk to her
 
-- **@mention her**, **say her name** ("hey Mimi, …"), or **reply** to one of her messages, in any channel she can see.
-- **DM her** directly.
-- In any channel listed in `MIMI_CHANNEL_IDS`, she answers every message without a mention.
+- **@mention her** (or her role) in any channel or thread. In servers she answers **only when tagged**, for people and bots like Rook alike. Saying "Mimi", replying to her message without a tag, or writing in her threads doesn't wake her.
+- **DM her** directly (no tag needed in DMs).
+- Slash commands and the 📤 send reaction on her drafts work as before.
+- Set `MIMI_MENTION_ONLY=false` in Railway to go back to the older triggers (name, replies, her threads, `MIMI_CHANNEL_IDS`, untagged Rook messages).
 - **Attach images** (designs, references, mood boards) and she'll look at them.
 - Replies come as branded cards (Agent Lead Lab green): a title, a short intro, and bold sections, with her avatar on top and the logo plus who asked in the footer. `src/ui.js` builds the cards and keeps them within Discord's limits.
 - She reads the last ~20 messages in the channel, so follow-ups work naturally.
@@ -72,7 +73,8 @@ All settings live in `.env` (see `.env.example`):
 | `DISCORD_CLIENT_ID` | (required for `deploy-commands`) | Application ID |
 | `ANTHROPIC_API_KEY` | (required) | Claude API key |
 | `DISCORD_GUILD_ID` | (unset) | Register commands to one server instantly |
-| `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message |
+| `MIMI_MENTION_ONLY` | `true` | Answer only messages that @tag her (people and bots). `false` turns on the triggers below |
+| `MIMI_CHANNEL_IDS` | (unset) | Comma-separated channels where she answers every message (only when `MIMI_MENTION_ONLY=false`) |
 | `MIMI_REPLY_TO_NAME` | `true` | Reply when someone says "Mimi". Set to `false` to require an @mention |
 | `MIMI_STATUS` | `💅 Always raising the standard` | Custom status under her name. Set it empty to hide it |
 | `SAMPLES_SHEET_URL` | (unset) | Google Sheet with the ad sample library (see below) |
