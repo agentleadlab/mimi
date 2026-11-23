@@ -124,8 +124,28 @@ function isWatchedBotMessage(message) {
   );
 }
 
+/** Does the message's text @tag Mimi or her bot role? (A plain reply to her doesn't count.) */
+function isTagged(message) {
+  const roleId = botRoleId(message);
+  const text = message.content ?? "";
+  return new RegExp(`<@!?${client.user.id}>`).test(text) || Boolean(roleId && text.includes(`<@&${roleId}>`));
+}
+
 async function shouldReply(message) {
   if (message.author.id === client.user.id) return false;
+  if (config.mentionOnly) {
+    // DMs are already addressed to her. In servers: only when tagged, people and bots alike.
+    if (message.channel.type === ChannelType.DM) return !message.author.bot;
+    if (!isTagged(message)) return false;
+    if (message.author.bot) {
+      if (!isAllowedBot(message.author)) return false;
+      if (!botAllowance(message.channelId, { consume: false })) {
+        console.warn(`Ignoring ${message.author.username} in #${message.channel.name}: too many bot requests in 10 min.`);
+        return false;
+      }
+    }
+    return true;
+  }
   if (message.author.bot) {
     // Only allowed bots, only on a direct @mention of Mimi (or her role), within the loop cap.
     if (!isAllowedBot(message.author)) return false;

@@ -15,8 +15,11 @@ export const config = {
   discordGuildId: process.env.DISCORD_GUILD_ID,
   // Channels where Mimi replies to every message, not only @mentions.
   autoReplyChannelIds: list(process.env.MIMI_CHANNEL_IDS),
-  // Reply when someone says "Mimi" in a message, no @mention needed.
+  // Reply when someone says "Mimi" in a message, no @mention needed (ignored in mention-only mode).
   replyToName: process.env.MIMI_REPLY_TO_NAME !== "false",
+  // Mention-only (default): in servers Mimi answers only messages that @tag her (or her role),
+  // from people and bots alike. Set MIMI_MENTION_ONLY=false for the older, chattier triggers.
+  mentionOnly: process.env.MIMI_MENTION_ONLY !== "false",
 
   // Custom status under Mimi's name. Set MIMI_STATUS to an empty string to hide it.
   status: process.env.MIMI_STATUS ?? "💅 Always raising the standard",
